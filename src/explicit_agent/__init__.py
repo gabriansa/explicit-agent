@@ -12,10 +12,8 @@ logging.getLogger("explicit_agent").addHandler(logging.NullHandler())
 
 from .agent import ExplicitAgent
 from .tools import (
-    StatelessTool,
-    StatefulTool,
-    StopStatelessTool,
-    StopStatefulTool,
+    BaseTool,
+    StopTool,
     register_tools,
 )
 
@@ -24,9 +22,7 @@ __version__ = importlib.metadata.version("explicit-agent")
 
 __all__ = [
     "ExplicitAgent",
-    "StatelessTool",
-    "StatefulTool",
-    "StopStatelessTool",
-    "StopStatefulTool",
+    "BaseTool",
+    "StopTool",
     "register_tools",
 ]

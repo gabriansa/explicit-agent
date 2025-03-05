@@ -1,20 +1,29 @@
 import inspect
+import warnings
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Type, Union
+from typing import Any, Dict, List, Type
 
 from openai import pydantic_function_tool
 from pydantic import BaseModel
 
 
-class StatelessTool(BaseModel, ABC):
-    """Base class for tools that combines model definition and implementation"""
+class BaseTool(BaseModel, ABC):
+    """Base class for tools.
+
+    Tools can be stateful or stateless based on their `execute` method signature:
+    - If `execute` method includes a `state` parameter, it's considered stateful (e.g `def execute(state, **kwargs)`)
+    - If `execute` method doesn't have a `state` parameter, it's considered stateless (e.g `def execute(**kwargs)`)
+    - If no `execute` method is provided, a default implementation returning `None` will be used.
+    """
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         if "execute" not in cls.__dict__:
-            raise TypeError(
-                f"Tool class '{cls.__name__}' must implement an 'execute' method. Tools require an execute method to define their functionality."
+            warnings.warn(
+                f"Tool class '{cls.__name__}' does not implement an 'execute' method. "
+                f"A default method returning None will be used."
             )
+
 
     @staticmethod
     @abstractmethod
@@ -22,56 +31,36 @@ class StatelessTool(BaseModel, ABC):
         """Execute the tool functionality
 
         Args:
-            `**kwargs`: Tool-specific arguments
+            `state`: The current state of the agent (optional, making the tool stateful)
+            `**kwargs`: Tool-specific arguments defined by the tool's Pydantic fields
 
         Returns:
             `Any`: The result of the tool execution
         """
         pass
 
-
-class StatefulTool(BaseModel, ABC):
-    """Base class for tools that need access to the agent's state"""
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if "execute" not in cls.__dict__:
-            raise TypeError(
-                f"Tool class '{cls.__name__}' must implement an 'execute' method. Tools require an execute method to define their functionality."
-            )
-
+    @classmethod
+    def is_stateful(cls) -> bool:
+        """Determine if this tool is stateful by checking for a 'state' parameter in execute"""
         sig = inspect.signature(cls.execute)
-        params = list(sig.parameters.keys())
-        if "state" not in params:
-            raise TypeError(
-                f"Execute method in {cls.__name__} must have 'state' parameter"
-            )
-
-    @staticmethod
-    @abstractmethod
-    def execute(state: Any, **kwargs) -> Any:
-        """Execute the tool functionality with access to agent state
-
-        Args:
-            `state`: The current state of the agent
-            `**kwargs`: Tool-specific arguments
-
-        Returns:
-            `Any`: The result of the tool execution
-        """
-        pass
+        return "state" in sig.parameters
 
 
-class StopStatelessTool(StatelessTool):
-    """Base class for tools that signals to stop agent execution when called"""
+class StopTool(BaseTool):
+    """Base class for stop tools.
 
-    @staticmethod
-    @abstractmethod
-    def execute(**kwargs) -> Any:
+    Tools can be stateful or stateless based on their `execute` method signature:
+    - If `execute` method includes a `state` parameter, it's considered stateful (e.g `def execute(state, **kwargs)`)
+    - If `execute` method doesn't have a `state` parameter, it's considered stateless (e.g `def execute(**kwargs)`)
+    - If no `execute` method is provided, a default implementation returning `None` will be used.
+    """
+
+    def execute(self, **kwargs) -> Any:
         """Execute the stop tool functionality
 
         Args:
-            `**kwargs`: Tool-specific arguments
+            `state`: The current state of the agent (optional, making the tool stateful)
+            `**kwargs`: Tool-specific arguments defined by the tool's Pydantic fields
 
         Returns:
             `Any`: The result of the tool execution
@@ -79,29 +68,7 @@ class StopStatelessTool(StatelessTool):
         pass
 
 
-class StopStatefulTool(StatefulTool):
-    """Base class for tools that signals to stop agent execution when called"""
-
-    @staticmethod
-    @abstractmethod
-    def execute(state: Any, **kwargs) -> Any:
-        """Execute the stop tool functionality with access to agent state
-
-        Args:
-            `state`: The current state of the agent
-            `**kwargs`: Tool-specific arguments
-
-        Returns:
-            `Any`: The result of the tool execution
-        """
-        pass
-
-
-def register_tools(
-    tool_classes: List[
-        Type[Union[StatelessTool, StatefulTool, StopStatelessTool, StopStatefulTool]]
-    ],
-) -> Dict[Type, Any]:
+def register_tools(tool_classes: List[Type[BaseTool]]) -> Dict[Type, Any]:
     """
     Convert tool classes to OpenAI type tools.
 

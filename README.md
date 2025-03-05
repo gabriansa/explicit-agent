@@ -1,8 +1,18 @@
-# Explicit Agent Framework
+# Hi, this is Explicit Agent
+
+A minimalist, transparent framework for building AI agents with full user control and zero abstraction layers - yes ZERO!
 
 ![Explicit Agent](assets/explicit.png)
 
-A minimalist, transparent framework for building AI agents with full user control.
+## Table of Contents
+- [Why Explicit Agent?](#why-explicit-agent)
+- [Get Started](#get-started)
+  - [Installation](#installation)
+  - [How to use it](#how-to-use-it)
+- [Core Concepts](#core-concepts)
+  - [Agent State](#agent-state)
+  - [Tool Types](#tool-types)
+
 
 ## Why Explicit Agent?
 
@@ -11,42 +21,21 @@ Most agentic frameworks are overengineered with layers of abstraction that obscu
 - **Complete transparency**: No hidden prompts or "magic" under the hood
 - **Full control**: You define exactly how your agent behaves
 - **Minimal infrastructure**: Only the essentials needed to run capable AI agents
-- **Simplicity first**: Build complex behaviors from simple, understandable components
+- **Simplicity first**: Ability to build complex behaviors from simple, understandable components
 
-This framework was created to put control back in your hands. It provides the minimum viable infrastructure for running AI agents while maintaining full visibility into their operation.
+This framework provides the minimum viable infrastructure for running AI agents while maintaining full visibility into their operation.
 
-## Core Concepts
+## Get Started
 
-![Explicit Agent Framework](assets/framework.png)
+### Installation
 
-The Explicit Agent Framework is built around a few simple concepts that work together to create powerful, transparent AI agents.
+You can install Explicit Agent directly from [PyPI](https://pypi.org/project/explicit-agent/0.1.0/):
 
+```bash
+pip install explicit-agent
+```
 
-### Agent State
-
-The agent maintains a state that persists across tool calls and interactions. This allows tools to share information and build on previous results. The state can be initialized when creating the agent and is updated by "stateful" tools.
-
-### Tool Types
-
-The framework supports four types of tools:
-
-- **StatelessTool**: Standard tools that execute a function and return a result. These tools don't have access to or modify the agent's state.
-  
-- **StatefulTool**: Tools that receive the current state and return a result. These are perfect for tools that need to read from or write to the agent's persistent memory.
-  
-- **StopStatelessTool**: Special stateless tools that signal when the agent should stop execution. They return a result and prevent further tool calls.
-
-- **StopStatefulTool**: Special stateful tools that signal when the agent should stop execution. They receive the final state, return a result, and prevent further tool calls.
-
-### Execution Flow
-
-1. The agent receives a prompt from the user
-2. The agent generates tool calls based on the prompt and system instructions
-3. The tools are executed, potentially updating the agent's state
-4. The results are fed back to the agent
-5. This continues until a Stop tool is called or the budget is exhausted
-
-## Installation
+Or install from source (reccomended):
 
 ```bash
 # Clone the repository
@@ -54,146 +43,118 @@ git clone https://github.com/gabriansa/explicit-agent.git
 cd explicit-agent
 
 # Install the package
-pip install e .
+pip install -e .
 ```
 
-## Quick Start
-
-### 1. Create Your Tools
-
-Tools are the core components of the Explicit Agent framework. You can create four types of tools:
-
-```python
-from explicit_agent.tools import StatelessTool, StatefulTool, StopStatelessTool, StopStatefulTool
-from typing import Optional, Any
-
-# 1. Stateless Tool - Simple tools that don't need to maintain state
-class Add(StatelessTool):
-    """Add two numbers"""
-    a: int
-    b: int
-
-    def execute(a, b):
-        return a + b
-
-# 2. Stateful Tool - Tools that access and modify agent state
-class AddToCart(StatefulTool):
-    """Add an item to the shopping cart"""
-    item: str
-    quantity: int
-    price: float
-
-    def execute(state, item: str, quantity: int, price: float):
-        if item in state.items:
-            state.items[item]['quantity'] += quantity
-        else:
-            state.items[item] = {'quantity': quantity, 'price': price}
-        
-        return f"Added {quantity} {item}(s) at ${price:.2f} each"
-
-# 3. Stop Tools - Tools that signal the agent to stop execution
-class Checkout(StopStatefulTool):
-    """Checkout the shopping cart"""
-    
-    def execute(state):
-        total = sum(item['quantity'] * item['price'] for item in state.items.values())
-        return f"Checkout complete! Total: ${total:.2f}"
-```
-
-### 2. Create an Agent
-
-Initialize an agent with your desired configuration:
+### How to use it
 
 ```python
 from explicit_agent import ExplicitAgent
-import os
+from explicit_agent.tools import BaseTool, StopTool
 
-# Create an agent with your API key and optional settings
-agent = ExplicitAgent(
-    api_key=<your_openai_api_key>,
-    system_prompt="You are a helpful assistant that uses tools to solve problems.",
-    initial_state=None,  # Optional: Provide initial state for stateful tools
-    verbose=True  # Show detailed logs
-)
-```
+# ========= DEFINING TOOLS =========
+# Tools are the actions your agent can perform
+# Each tool is a Pydantic model with an execute method
 
-### 3. Run Your Agent
-
-Run the agent with your tools and prompt:
-
-```python
-# Define a shopping cart state
-class ShoppingCartState:
-    def __init__(self):
-        self.items = {}
-
-# Create tools
-tools = [AddToCart, ViewCart, Checkout]
-
-# Define your user prompt
-prompt = "Add 2 apples at $1.50 each and 1 banana at $0.75 to my cart. Then checkout."
-
-# Run the agent
-final_state = agent.run(
-    model="gpt-4o-mini",  # Choose your preferred model
-    prompt=prompt,
-    budget=10,  # Maximum number of iterations
-    tools=tools,
-    initial_state=ShoppingCartState(),  # For stateful tools
-    tool_choice="auto",
-    parallel_tool_calls=False  # Process tools sequentially
-)
-
-print(final_state)  # Final state or output from Stop tool
-```
-
-### 4. Complete Example
-
-Here's a simple calculator agent:
-
-```python
-from explicit_agent import ExplicitAgent
-from explicit_agent.tools import StatelessTool, StopStatelessTool
-import os
-
-# Define calculator tools
-class Add(StatelessTool):
-    """Add two numbers"""
-    a: int
-    b: int
-    
-    def execute(a, b):
-        return a + b
-
-class Multiply(StatelessTool):
+# BaseTool - Standard tool that performs an action but doesn't stop the agent
+class Multiply(BaseTool):
     """Multiply two numbers"""
-    a: int
-    b: int
-    
-    def execute(a, b):
+    # Define the parameters this tool accepts - these become required fields
+    a: int | float  # First number to multiply
+    b: int | float  # Second number to multiply
+
+    # The execute method defines what happens when this tool is called
+    # If the method has a 'state' parameter, it's stateful and can modify agent state
+    @staticmethod
+    def execute(state, a, b):
+        # Save result to the agent's state so other tools can access it later
+        state["result"] = a * b
+        # Return value is what gets sent back to the LLM
         return a * b
 
-class FinishCalculation(StopStatelessTool):
-    """Finish the calculation"""
-    result: int
-    
-    def execute(result):
-        return result
+# StopTool - Special tool type that signals the agent to stop execution
+# Use this for final actions or to return results to the user
+class ShowResult(StopTool):
+    """Show the final result"""
 
-# Create and run the agent
+    # This tool doesn't need parameters because it gets data from state
+    def execute(state):
+        # Return the final result that was stored in state by previous tool calls
+        return state["result"]
+
+
+# ========= SYSTEM PROMPT =========
+# The system prompt defines the agent's personality and instructions
+# This is the first message sent to the LLM - be explicit about available tools
+system_prompt = """
+You are a calculator.
+These are the tools you can use:
+- Multiply
+- ShowResult
+
+When you are done with the calculation, use the `ShowResult` tool to show the final result.
+"""
+
+# ========= AGENT INITIALIZATION =========
+# Initialize the agent with key parameters
 agent = ExplicitAgent(
-    api_key=<your_openai_api_key>,
-    system_prompt="You are a calculator. Use the tools to perform calculations."
+    api_key=api_key,  # Your API key for the LLM provider
+    base_url=base_url,  # Base URL for the provider (e.g., OpenAI, Azure, etc.)
+    system_prompt=system_prompt,  # Instructions for the agent
+    initial_state={"result": None},  # Initialize the agent's state - a shared memory between tools
+    verbose=True  # Print detailed logs of what's happening
 )
 
+# ========= USER PROMPT =========
+# This is the task you want the agent to perform
+prompt = """
+Do the following calculations:
+1. Multiply 3294 by 1023
+2. Multiply the result by 29218
+3. Show the final result
+"""
+
+# ========= AGENT EXECUTION =========
+# Run the agent with the prompt and tools
 final_state = agent.run(
-    model="gpt-4o-mini",
-    prompt="Calculate (3 + 4) * 5",
-    tools=[Add, Multiply, FinishCalculation]
+    model="openai/gpt-4o-mini",  # LLM model to use
+    prompt=prompt,               # User's instructions
+    budget=10,                   # Maximum number of steps (tool calls) before forced termination
+    tools=[Multiply, ShowResult], # List of available tools
 )
-
-print(final_state)  # Output: 35
+# When execution completes, final_state contains the agent's final state
+# A StopTool will trigger completion, or the agent will stop when budget is exhausted
 ```
+
+
+
+## Core Concepts
+Explicit Agent is built around a few simple concepts.
+
+![Explicit Agent Framework](assets/framework.png)
+
+
+
+### Agent State
+
+The agent maintains a `state` variable that persists across tool calls. This allows tools to share information, build on previous results, and modify the state itself. The state can be initialized when creating the agent.
+
+### Tool Types
+
+- **`BaseTool`**: This is the base class for creating tools.
+- **`StopTool`**: This is the base class for creating stop tools. Stop tools are extremely important because they are the ones that signal when the agent should stop execution
+
+Both the `BaseTool` and `StopTool` tools can be stateful or stateless based on their `execute` method signature:
+    - If `execute` method includes a `state` parameter, it's considered stateful (e.g `def execute(state, **kwargs)`)
+    - If `execute` method doesn't have a `state` parameter, it's considered stateless (e.g `def execute(**kwargs)`)
+
+### Execution Flow
+
+1. The agent receives a prompt from the user
+2. The agent generates tool calls based on the prompt and system instructions
+3. The tools are executed, potentially updating the agent's state
+4. The results are fed back to the agent, which uses them to inform subsequent decisions
+5. This continues until a `StopTool` is called or the budget is exhausted
 
 ## Examples
 
