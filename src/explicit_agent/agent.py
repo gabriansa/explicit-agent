@@ -178,7 +178,7 @@ class ExplicitAgent:
         ] = None,
         tool_choice: str = "auto",
         parallel_tool_calls: bool = False,
-    ) -> dict:
+    ) -> Any:
         """
         Run the ExplicitAgent with the given prompt and tools.
 
@@ -191,7 +191,7 @@ class ExplicitAgent:
             `parallel_tool_calls`: Whether to allow the model to call multiple functions in parallel
 
         Returns:
-            `dict`: The final state of the agent
+            `Any`: The final state of the agent
         """
 
         if not model or not isinstance(model, str):
