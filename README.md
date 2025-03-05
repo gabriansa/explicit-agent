@@ -1,6 +1,6 @@
 # Explicit Agent Framework
 
-![Explicit Agent](assets/explicit.webp)
+![Explicit Agent](assets/explicit.png)
 
 A minimalist, transparent framework for building AI agents with full user control.
 
