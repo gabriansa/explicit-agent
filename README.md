@@ -142,11 +142,11 @@ The agent maintains a `state` variable that persists across tool calls. This all
 ### Tool Types
 
 - **`BaseTool`**: This is the base class for creating tools.
-- **`StopTool`**: This is the base class for creating stop tools. Stop tools are extremely important because they are the ones that signal when the agent should stop execution
+- **`StopTool`**: This is the base class for creating stop tools. Stop tools are extremely important because they are the ones that signal when the agent should stop execution.
 
 Both the `BaseTool` and `StopTool` tools can be stateful or stateless based on their `execute` method signature:
-    - If `execute` method includes a `state` parameter, it's considered stateful (e.g `def execute(state, **kwargs)`)
-    - If `execute` method doesn't have a `state` parameter, it's considered stateless (e.g `def execute(**kwargs)`)
+- If `execute` method includes a `state` parameter, it's considered stateful (e.g `def execute(state, **kwargs)`)
+- If `execute` method doesn't have a `state` parameter, it's considered stateless (e.g `def execute(**kwargs)`)
 
 ### Execution Flow
 
