@@ -25,6 +25,7 @@ Most agentic frameworks are overengineered with layers of abstraction that obscu
 
 This framework provides the minimum viable infrastructure for running AI agents while maintaining full visibility into their operation.
 
+At the end of the day, an agent should be able to solve a task autonomously given a set of tools. And this is it.
 ## Get Started
 
 ### Installation
