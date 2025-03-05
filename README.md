@@ -29,7 +29,7 @@ This framework provides the minimum viable infrastructure for running AI agents 
 
 ### Installation
 
-You can install Explicit Agent directly from [PyPI](https://pypi.org/project/explicit-agent/0.1.0/):
+You can install Explicit Agent directly from [PyPI](https://pypi.org/project/explicit-agent/0.1.1/):
 
 ```bash
 pip install explicit-agent
