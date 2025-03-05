@@ -1,14 +1,16 @@
 from explicit_agent import ExplicitAgent
 from explicit_agent.tools import BaseTool, StopTool
 
+from pydantic import Field
+
 # ========= DEFINING TOOLS =========
 # Tools for managing a shopping cart
 
 class AddItem(BaseTool):
     """Add an item to the shopping cart"""
-    item_name: str  # Name of the item
-    price: float  # Price of the item
-    quantity: int  # Quantity of the item
+    item_name: str  = Field(..., description="The name of the item to add")
+    price: float  = Field(..., description="The price of the item")
+    quantity: int  = Field(..., description="The quantity of the item")
 
     @staticmethod
     def execute(state, item_name, price, quantity):
@@ -33,7 +35,7 @@ class AddItem(BaseTool):
 
 class RemoveItem(BaseTool):
     """Remove an item from the shopping cart"""
-    item_name: str  # Name of the item to remove
+    item_name: str  = Field(..., description="The name of the item to remove")
     
     @staticmethod
     def execute(state, item_name):
@@ -51,8 +53,8 @@ class RemoveItem(BaseTool):
 
 class UpdateQuantity(BaseTool):
     """Update the quantity of an item in the cart"""
-    item_name: str  # Name of the item
-    new_quantity: int  # New quantity
+    item_name: str  = Field(..., description="The name of the item to update")
+    new_quantity: int  = Field(..., description="The new quantity of the item")
     
     @staticmethod
     def execute(state, item_name, new_quantity):
@@ -79,7 +81,7 @@ class UpdateQuantity(BaseTool):
 
 class ApplyDiscount(BaseTool):
     """Apply a discount to the cart total"""
-    discount_percentage: float  # Percentage discount to apply (0-100)
+    discount_percentage: float  = Field(..., description="The percentage discount to apply (0-100)")
     
     @staticmethod
     def execute(state, discount_percentage):

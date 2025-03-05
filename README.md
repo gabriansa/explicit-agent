@@ -53,6 +53,8 @@ pip install -e .
 from explicit_agent import ExplicitAgent
 from explicit_agent.tools import BaseTool, StopTool
 
+from pydantic import Field
+
 # ========= DEFINING TOOLS =========
 # Tools are the actions your agent can perform
 # Each tool is a Pydantic model with an execute method
@@ -61,8 +63,8 @@ from explicit_agent.tools import BaseTool, StopTool
 class Multiply(BaseTool):
     """Multiply two numbers"""
     # Define the parameters this tool accepts - these become required fields
-    a: int | float  # First number to multiply
-    b: int | float  # Second number to multiply
+    a: int | float = Field(..., description="The first number to multiply")
+    b: int | float = Field(..., description="The second number to multiply")
 
     # The execute method defines what happens when this tool is called
     # If the method has a 'state' parameter, it's stateful and can modify agent state

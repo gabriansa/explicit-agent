@@ -1,13 +1,15 @@
 from explicit_agent import ExplicitAgent
 from explicit_agent.tools import BaseTool, StopTool
 
+from pydantic import Field
+
 # ========= DEFINING TOOLS =========
 # Tools are the actions the calculator agent can perform
 
 class Add(BaseTool):
     """Add two numbers"""
-    a: int | float  # First number
-    b: int | float  # Second number
+    a: int | float  = Field(..., description="The first number to add")
+    b: int | float  = Field(..., description="The second number to add")
 
     @staticmethod
     def execute(state, a, b):
@@ -17,8 +19,8 @@ class Add(BaseTool):
 
 class Subtract(BaseTool):
     """Subtract the second number from the first"""
-    a: int | float  # First number
-    b: int | float  # Second number
+    a: int | float  = Field(..., description="The first number")
+    b: int | float  = Field(..., description="The second number")
 
     @staticmethod
     def execute(state, a, b):
@@ -28,8 +30,8 @@ class Subtract(BaseTool):
 
 class Multiply(BaseTool):
     """Multiply two numbers"""
-    a: int | float  # First number
-    b: int | float  # Second number
+    a: int | float  = Field(..., description="The first number")
+    b: int | float  = Field(..., description="The second number")
 
     @staticmethod
     def execute(state, a, b):
@@ -39,8 +41,8 @@ class Multiply(BaseTool):
 
 class Divide(BaseTool):
     """Divide the first number by the second"""
-    a: int | float  # First number
-    b: int | float  # Second number
+    a: int | float  = Field(..., description="The first number")
+    b: int | float  = Field(..., description="The second number")
 
     @staticmethod
     def execute(state, a, b):
@@ -52,8 +54,8 @@ class Divide(BaseTool):
 
 class Power(BaseTool):
     """Raise the first number to the power of the second"""
-    base: int | float  # Base number
-    exponent: int | float  # Exponent
+    base: int | float  = Field(..., description="The base number")
+    exponent: int | float  = Field(..., description="The exponent")
 
     @staticmethod
     def execute(state, base, exponent):
@@ -63,7 +65,7 @@ class Power(BaseTool):
 
 class SquareRoot(BaseTool):
     """Calculate the square root of a number"""
-    number: int | float  # Number to find square root of
+    number: int | float  = Field(..., description="The number to find square root of")
 
     @staticmethod
     def execute(state, number):
