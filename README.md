@@ -1,5 +1,7 @@
 # Explicit Agent Framework
 
+![Explicit Agent](assets/explicit.webp)
+
 A minimalist, transparent framework for building AI agents with full user control.
 
 ## Why Explicit Agent?
@@ -15,7 +17,7 @@ This framework was created to put control back in your hands. It provides the mi
 
 ## Core Concepts
 
-![Explicit Agent Framework](framework.png)
+![Explicit Agent Framework](assets/framework.png)
 
 The Explicit Agent Framework is built around a few simple concepts that work together to create powerful, transparent AI agents.
 
