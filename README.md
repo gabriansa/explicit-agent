@@ -159,7 +159,11 @@ Both the `BaseTool` and `StopTool` tools can be stateful or stateless based on t
 
 ## Examples
 
-For more advanced usage and detailed documentation, see the examples directory.
+For more advanced usage and detailed documentation, see the [examples](examples) directory:
+
+- [Calculator Example](examples/calculator.py): A simple calculator agent that performs arithmetic operations
+- [Shopping Cart Example](examples/shopping_cart.py): A more complex example of a shopping assistant that manages a cart
+- [PhD Assistant](examples/phd_assistant.py): An advanced example of an agent that helps with academic research and writing
 
 ## License
 
