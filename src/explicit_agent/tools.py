@@ -1,4 +1,4 @@
-from typing import List, Type, Any
+from typing import List, Type, Any, Dict, Union
 from openai import pydantic_function_tool
 from pydantic import BaseModel
 
@@ -24,7 +24,7 @@ class StateAwareTool(BaseTool):
     """Base class for tools that need access to the agent's state"""
     
     @classmethod
-    def execute(cls, state: dict, **kwargs) -> dict:
+    def execute(cls, state: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """
         Execute the tool with access to the agent's state.
         Must return the updated state as a dictionary.
@@ -34,16 +34,32 @@ class StateAwareTool(BaseTool):
             `**kwargs`: Tool-specific arguments
             
         Returns:
-            `dict`: The updated state
+            `Dict[str, Any]`: The updated state
         """
         raise NotImplementedError("Tool must implement execute method")
 
 
 class StopTool(BaseModel):
     """Tool that signals to stop agent execution when called"""
+    
+    @classmethod
+    def execute(cls, state: Dict[str, Any], **kwargs) -> Dict[str, Any]:
+        """
+        Execute the stop tool. This typically returns the current state
+        and signals to the agent that execution should stop.
+        
+        Args:
+            `state`: The current state dictionary
+            `**kwargs`: Additional arguments (typically unused)
+            
+        Returns:
+            `Dict[str, Any]`: The final state
+        """
+        # You could add any final processing or cleanup here if needed
+        return state
 
 
-def register_tools(tool_classes: List[Type[StopTool | BaseTool | StateAwareTool]]) -> dict:
+def register_tools(tool_classes: List[Type[Union[StopTool, BaseTool, StateAwareTool]]]) -> Dict[Type, Any]:
     """
     Convert tool classes to OpenAI tools.
     

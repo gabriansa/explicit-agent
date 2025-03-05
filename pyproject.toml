@@ -8,7 +8,7 @@ version = "0.1.0"
 authors = [
     {name = "Gabri Ansaldo", email = "ansaldo.gabri@gmail.com"},
 ]
-description = "A zero bullshit framework for creating transparent tool-using agents"
+description = "A simple framework for creating transparent tool-using agents"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [

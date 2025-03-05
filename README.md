@@ -1,12 +1,41 @@
 # Explicit Agent Framework
 
-A framework for creating explicit tool-using agents.
+A minimalist, transparent framework for building AI agents with full user control.
 
-## Features
+## Why Explicit Agent?
 
-- Create agents that use tools in an explicit, controllable manner
-- Support for OpenAI compatible APIs (including OpenRouter)
-- State management across tool calls
+Most agentic frameworks are overengineered with layers of abstraction that obscure what's actually happening. Explicit Agent cuts through the BS to provide:
+
+- **Complete transparency**: No hidden prompts or "magic" under the hood
+- **Full control**: You define exactly how your agent behaves
+- **Minimal infrastructure**: Only the essentials needed to run capable AI agents
+- **Simplicity first**: Build complex behaviors from simple, understandable components
+
+This framework was created to put control back in your hands. It provides the minimum viable infrastructure for running AI agents while maintaining full visibility into their operation.
+
+## Core Concepts
+
+### Agent State
+
+The agent maintains a state dictionary that persists across tool calls and interactions. This allows tools to share information and build on previous results. The state can be initialized when creating the agent and is updated by state-aware tools.
+
+### Tool Types
+
+The framework supports three types of tools:
+
+- **BaseTool**: Standard tools that execute a function and return a result. These tools don't have access to or modify the agent's state.
+  
+- **StateAwareTool**: Tools that receive the current state and return an updated state. These are perfect for tools that need to read from or write to the agent's persistent memory.
+  
+- **StopTool**: Special tools that signal when the agent should stop execution. They return a final state with a conclusion and prevent further tool calls.
+
+### Execution Flow
+
+1. The agent receives a prompt from the user
+2. The agent generates tool calls based on the prompt and system instructions
+3. The tools are executed, potentially updating the agent's state
+4. The results are fed back to the agent
+5. This continues until a StopTool is called or the budget is exhausted
 
 ## Installation
 
