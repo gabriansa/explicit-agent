@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "explicit-agent"
+version = "0.1.0"
+authors = [
+    {name = "Gabri Ansaldo", email = "ansaldo.gabri@gmail.com"},
+]
+description = "A zero bullshit framework for creating transparent tool-using agents"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "openai>=1.0.0",
+    "pydantic>=2.0.0",
+    "rich>=12.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/gabriansa/explicit-agent"
+"Bug Tracker" = "https://github.com/gabriansa/explicit-agent/issues"
