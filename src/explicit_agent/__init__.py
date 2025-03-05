@@ -6,21 +6,27 @@ explicit control over tool execution, state management, and agent flow.
 """
 
 import logging
+import importlib.metadata
 
-# Configure basic logging
-logging.getLogger('explicit_agent').addHandler(logging.NullHandler())
+logging.getLogger("explicit_agent").addHandler(logging.NullHandler())
 
 from .agent import ExplicitAgent
-from .tools import BaseTool, StateAwareTool, StopTool, register_tools
+from .tools import (
+    StatelessTool,
+    StatefulTool,
+    StopStatelessTool,
+    StopStatefulTool,
+    register_tools,
+)
 
-# Define the version as a tuple for easy comparison and a string for display
-__version_info__ = (0, 1, 0)
-__version__ = '.'.join(str(c) for c in __version_info__)
+# Get version from pyproject.toml
+__version__ = importlib.metadata.version("explicit-agent")
 
 __all__ = [
     "ExplicitAgent",
-    "BaseTool",
-    "StateAwareTool", 
-    "StopTool",
+    "StatelessTool",
+    "StatefulTool",
+    "StopStatelessTool",
+    "StopStatefulTool",
     "register_tools",
 ]

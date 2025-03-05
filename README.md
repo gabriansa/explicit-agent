@@ -21,13 +21,15 @@ The agent maintains a state dictionary that persists across tool calls and inter
 
 ### Tool Types
 
-The framework supports three types of tools:
+The framework supports four types of tools:
 
-- **BaseTool**: Standard tools that execute a function and return a result. These tools don't have access to or modify the agent's state.
+- **StatelessTool**: Standard tools that execute a function and return a result. These tools don't have access to or modify the agent's state.
   
-- **StateAwareTool**: Tools that receive the current state and return an updated state. These are perfect for tools that need to read from or write to the agent's persistent memory.
+- **StatefulTool**: Tools that receive the current state and return an updated state. These are perfect for tools that need to read from or write to the agent's persistent memory.
   
-- **StopTool**: Special tools that signal when the agent should stop execution. They return a final state with a conclusion and prevent further tool calls.
+- **StopStatelessTool**: Special stateless tools that signal when the agent should stop execution. They return a result and prevent further tool calls.
+
+- **StopStatefulTool**: Special stateful tools that signal when the agent should stop execution. They receive and return a final state with a conclusion and prevent further tool calls.
 
 ### Execution Flow
 
@@ -35,7 +37,7 @@ The framework supports three types of tools:
 2. The agent generates tool calls based on the prompt and system instructions
 3. The tools are executed, potentially updating the agent's state
 4. The results are fed back to the agent
-5. This continues until a StopTool is called or the budget is exhausted
+5. This continues until a Stop tool is called or the budget is exhausted
 
 ## Installation
 
@@ -49,7 +51,7 @@ pip install explicit-agent
 import os
 from dotenv import load_dotenv
 from explicit_agent import ExplicitAgent
-from explicit_agent.tools import BaseTool, StateAwareTool, StopTool
+from explicit_agent.tools import StatelessTool, StatefulTool, StopStatelessTool, StopStatefulTool
 
 # Load API keys from environment
 load_dotenv()
@@ -57,23 +59,23 @@ api_key = os.getenv("OPENROUTER_API_KEY")
 base_url = os.getenv("OPENROUTER_BASE_URL")
 
 # Define a simple tool
-class GetWeather(BaseTool):
+class GetWeather(StatelessTool):
     """Get the weather for a location"""
     location: str
     
-    @classmethod
-    def execute(cls, location: str):
+    @staticmethod
+    def execute(location: str):
         # In a real implementation, this would call a weather API
         return f"The weather in {location} is sunny and 75°F"
 
 # Define a state-aware tool
-class AddToMemory(StateAwareTool):
+class AddToMemory(StatefulTool):
     """Add information to the agent's memory"""
     key: str
     value: str
     
-    @classmethod
-    def execute(cls, state: dict, key: str, value: str) -> dict:
+    @staticmethod
+    def execute(state: dict, key: str, value: str) -> dict:
         # Update the state with the new memory
         state = state.copy()  # Create a copy to avoid modifying the original
         state.setdefault("memory", {})
@@ -81,12 +83,12 @@ class AddToMemory(StateAwareTool):
         return state
 
 # Define a stopping tool
-class Finish(StopTool):
+class Finish(StopStatefulTool):
     """Signal that the agent has completed its task"""
     conclusion: str
     
-    @classmethod
-    def execute(cls, state: dict, conclusion: str) -> dict:
+    @staticmethod
+    def execute(state: dict, conclusion: str) -> dict:
         state = state.copy()
         state["conclusion"] = conclusion
         return state
