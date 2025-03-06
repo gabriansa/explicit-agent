@@ -25,3 +25,10 @@ dependencies = [
 [project.urls]
 "Homepage" = "https://github.com/gabriansa/explicit-agent"
 "Bug Tracker" = "https://github.com/gabriansa/explicit-agent/issues"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["assets*", "tests*"]
