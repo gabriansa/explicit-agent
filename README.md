@@ -68,12 +68,11 @@ class Multiply(BaseTool):
 
     # The execute method defines what happens when this tool is called
     # If the method has a 'state' parameter, it's stateful and can modify agent state
-    @staticmethod
-    def execute(state, a, b):
+    def execute(self, state):
         # Save result to the agent's state so other tools can access it later
-        state["result"] = a * b
+        state["result"] = self.a * self.b
         # Return value is what gets sent back to the LLM
-        return a * b
+        return self.a * self.b
 
 # StopTool - Special tool type that signals the agent to stop execution
 # Use this for final actions or to return results to the user
@@ -81,7 +80,7 @@ class ShowResult(StopTool):
     """Show the final result"""
 
     # This tool doesn't need parameters because it gets data from state
-    def execute(state):
+    def execute(self, state):
         # Return the final result that was stored in state by previous tool calls
         return state["result"]
 

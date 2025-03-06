@@ -1,13 +1,12 @@
 import inspect
 import warnings
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, Optional
 
 from openai import pydantic_function_tool
 from pydantic import BaseModel
 
 
-class BaseTool(BaseModel, ABC):
+class BaseTool(BaseModel):
     """Base class for tools.
 
     Tools can be stateful or stateless based on their `execute` method signature:
@@ -24,10 +23,7 @@ class BaseTool(BaseModel, ABC):
                 f"A default method returning None will be used."
             )
 
-
-    @staticmethod
-    @abstractmethod
-    def execute(**kwargs) -> Any:
+    def execute(self, state: Optional[Any] = None, **kwargs) -> Any:
         """Execute the tool functionality
 
         Args:
@@ -55,7 +51,7 @@ class StopTool(BaseTool):
     - If no `execute` method is provided, a default implementation returning `None` will be used.
     """
 
-    def execute(self, **kwargs) -> Any:
+    def execute(self, state: Optional[Any] = None, **kwargs) -> Any:
         """Execute the stop tool functionality
 
         Args:

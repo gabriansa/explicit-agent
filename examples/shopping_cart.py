@@ -12,83 +12,79 @@ class AddItem(BaseTool):
     price: float  = Field(..., description="The price of the item")
     quantity: int  = Field(..., description="The quantity of the item")
 
-    @staticmethod
-    def execute(state, item_name, price, quantity):
+    def execute(self, state):
         # Initialize the cart if it doesn't exist
         if "cart" not in state:
             state["cart"] = {}
             state["total"] = 0.0
         
         # Add or update the item in the cart
-        if item_name in state["cart"]:
-            existing_quantity = state["cart"][item_name]["quantity"]
-            state["cart"][item_name]["quantity"] = existing_quantity + quantity
-            state["total"] += price * quantity
-            return f"Updated {item_name} quantity to {state['cart'][item_name]['quantity']} in the cart"
+        if self.item_name in state["cart"]:
+            existing_quantity = state["cart"][self.item_name]["quantity"]
+            state["cart"][self.item_name]["quantity"] = existing_quantity + self.quantity
+            state["total"] += self.price * self.quantity
+            return f"Updated {self.item_name} quantity to {state['cart'][self.item_name]['quantity']} in the cart"
         else:
-            state["cart"][item_name] = {
-                "price": price,
-                "quantity": quantity
+            state["cart"][self.item_name] = {
+                "price": self.price,
+                "quantity": self.quantity
             }
-            state["total"] += price * quantity
-            return f"Added {quantity} {item_name}(s) to the cart at ${price:.2f} each"
+            state["total"] += self.price * self.quantity
+            return f"Added {self.quantity} {self.item_name}(s) to the cart at ${self.price:.2f} each"
 
 class RemoveItem(BaseTool):
     """Remove an item from the shopping cart"""
     item_name: str  = Field(..., description="The name of the item to remove")
     
-    @staticmethod
-    def execute(state, item_name):
-        if "cart" not in state or item_name not in state["cart"]:
-            return f"Error: {item_name} is not in the cart"
+    def execute(self, state):
+        if "cart" not in state or self.item_name not in state["cart"]:
+            return f"Error: {self.item_name} is not in the cart"
         
         # Calculate the refund amount
-        refund = state["cart"][item_name]["price"] * state["cart"][item_name]["quantity"]
+        refund = state["cart"][self.item_name]["price"] * state["cart"][self.item_name]["quantity"]
         
         # Remove the item and update the total
-        del state["cart"][item_name]
+        del state["cart"][self.item_name]
         state["total"] -= refund
         
-        return f"Removed {item_name} from the cart"
+        return f"Removed {self.item_name} from the cart"
 
 class UpdateQuantity(BaseTool):
     """Update the quantity of an item in the cart"""
     item_name: str  = Field(..., description="The name of the item to update")
     new_quantity: int  = Field(..., description="The new quantity of the item")
     
-    @staticmethod
-    def execute(state, item_name, new_quantity):
-        if "cart" not in state or item_name not in state["cart"]:
-            return f"Error: {item_name} is not in the cart"
+    def execute(self, state):
+        if "cart" not in state or self.item_name not in state["cart"]:
+            return f"Error: {self.item_name} is not in the cart"
         
-        if new_quantity <= 0:
+        if self.new_quantity <= 0:
             # Remove the item if quantity is zero or negative
-            refund = state["cart"][item_name]["price"] * state["cart"][item_name]["quantity"]
-            del state["cart"][item_name]
+            refund = state["cart"][self.item_name]["price"] * state["cart"][self.item_name]["quantity"]
+            del state["cart"][self.item_name]
             state["total"] -= refund
-            return f"Removed {item_name} from the cart (quantity set to {new_quantity})"
+            return f"Removed {self.item_name} from the cart (quantity set to {self.new_quantity})"
         
         # Calculate the price difference
-        old_quantity = state["cart"][item_name]["quantity"]
-        price = state["cart"][item_name]["price"]
-        price_difference = price * (new_quantity - old_quantity)
+        old_quantity = state["cart"][self.item_name]["quantity"]
+        price = state["cart"][self.item_name]["price"]
+        price_difference = price * (self.new_quantity - old_quantity)
         
         # Update the quantity and total
-        state["cart"][item_name]["quantity"] = new_quantity
+        state["cart"][self.item_name]["quantity"] = self.new_quantity
         state["total"] += price_difference
         
-        return f"Updated {item_name} quantity to {new_quantity}"
+        return f"Updated {self.item_name} quantity to {self.new_quantity}"
 
 class ApplyDiscount(BaseTool):
     """Apply a discount to the cart total"""
     discount_percentage: float  = Field(..., description="The percentage discount to apply (0-100)")
     
-    @staticmethod
-    def execute(state, discount_percentage):
+    def execute(self, state):
         if "cart" not in state or not state["cart"]:
             return "Error: Cart is empty"
         
-        if discount_percentage < 0 or discount_percentage > 100:
+        if self.discount_percentage < 0 or self.discount_percentage > 100:
             return "Error: Discount percentage must be between 0 and 100"
         
         if "discount" in state:
@@ -96,23 +92,22 @@ class ApplyDiscount(BaseTool):
         
         # Calculate the discount amount
         original_total = state["total"]
-        discount_amount = original_total * (discount_percentage / 100)
+        discount_amount = original_total * (self.discount_percentage / 100)
         discounted_total = original_total - discount_amount
         
         # Update the state
         state["discount"] = {
-            "percentage": discount_percentage,
+            "percentage": self.discount_percentage,
             "amount": discount_amount
         }
         state["total"] = discounted_total
         
-        return f"Applied a {discount_percentage}% discount. Saved ${discount_amount:.2f}"
+        return f"Applied a {self.discount_percentage}% discount. Saved ${discount_amount:.2f}"
 
 class ShowCart(BaseTool):
     """Display the current contents of the shopping cart"""
     
-    @staticmethod
-    def execute(state):
+    def execute(self, state):
         if "cart" not in state or not state["cart"]:
             return "Your cart is empty"
         
@@ -143,15 +138,14 @@ class ShowCart(BaseTool):
 
 class TaskComplete(StopTool):
     """Signal the end of the task"""
-    @staticmethod
-    def execute(state):
+
+    def execute(self):
         return "Task complete"
 
 class Checkout(StopTool):
     """Process the checkout and complete the shopping session"""
     
-    @staticmethod
-    def execute(state):
+    def execute(self, state):
         if "cart" not in state or not state["cart"]:
             return "Cannot checkout: Your cart is empty"
         

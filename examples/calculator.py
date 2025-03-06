@@ -11,75 +11,68 @@ class Add(BaseTool):
     a: int | float  = Field(..., description="The first number to add")
     b: int | float  = Field(..., description="The second number to add")
 
-    @staticmethod
-    def execute(state, a, b):
-        result = a + b
+    def execute(self, state):
+        result = self.a + self.b
         state["result"] = result
-        return f"Added {a} + {b} = {result}"
+        return f"Added {self.a} + {self.b} = {result}"
 
 class Subtract(BaseTool):
     """Subtract the second number from the first"""
     a: int | float  = Field(..., description="The first number")
     b: int | float  = Field(..., description="The second number")
 
-    @staticmethod
-    def execute(state, a, b):
-        result = a - b
+    def execute(self, state):
+        result = self.a - self.b
         state["result"] = result
-        return f"Subtracted {a} - {b} = {result}"
+        return f"Subtracted {self.a} - {self.b} = {result}"
 
 class Multiply(BaseTool):
     """Multiply two numbers"""
     a: int | float  = Field(..., description="The first number")
     b: int | float  = Field(..., description="The second number")
 
-    @staticmethod
-    def execute(state, a, b):
-        result = a * b
+    def execute(self, state):
+        result = self.a * self.b
         state["result"] = result
-        return f"Multiplied {a} × {b} = {result}"
+        return f"Multiplied {self.a} × {self.b} = {result}"
 
 class Divide(BaseTool):
     """Divide the first number by the second"""
     a: int | float  = Field(..., description="The first number")
     b: int | float  = Field(..., description="The second number")
 
-    @staticmethod
-    def execute(state, a, b):
-        if b == 0:
+    def execute(self, state):
+        if self.b == 0:
             return "Error: Cannot divide by zero"
-        result = a / b
+        result = self.a / self.b
         state["result"] = result
-        return f"Divided {a} ÷ {b} = {result}"
+        return f"Divided {self.a} ÷ {self.b} = {result}"
 
 class Power(BaseTool):
     """Raise the first number to the power of the second"""
     base: int | float  = Field(..., description="The base number")
     exponent: int | float  = Field(..., description="The exponent")
 
-    @staticmethod
-    def execute(state, base, exponent):
-        result = base ** exponent
+    def execute(self, state):
+        result = self.base ** self.exponent
         state["result"] = result
-        return f"Calculated {base} ^ {exponent} = {result}"
+        return f"Calculated {self.base} ^ {self.exponent} = {result}"
 
 class SquareRoot(BaseTool):
     """Calculate the square root of a number"""
     number: int | float  = Field(..., description="The number to find square root of")
 
-    @staticmethod
-    def execute(state, number):
-        if number < 0:
+    def execute(self, state):
+        if self.number < 0:
             return "Error: Cannot calculate square root of a negative number"
-        result = number ** 0.5
+        result = self.number ** 0.5
         state["result"] = result
-        return f"Square root of {number} = {result}"
+        return f"Square root of {self.number} = {result}"
 
 class ShowResult(StopTool):
     """Show the final result and stop execution"""
 
-    @staticmethod
-    def execute(state):
+    def execute(self, state):
         if "result" not in state or state["result"] is None:
             return "No result has been calculated yet."
         return f"Final result: {state['result']}"

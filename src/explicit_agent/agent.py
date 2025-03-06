@@ -123,10 +123,11 @@ class ExplicitAgent:
 
                 is_stateful = tool_class.is_stateful()
 
+                tool_instance = tool_class(**tool_args)
                 if is_stateful:
-                    result = tool_class.execute(state=self.state, **tool_args)
+                    result = tool_instance.execute(state=self.state)
                 else:
-                    result = tool_class.execute(**tool_args)
+                    result = tool_instance.execute()
 
                 try:
                     serialized_result = json.dumps({"result": result})
