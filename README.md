@@ -30,7 +30,7 @@ At the end of the day, an agent should be able to solve a task autonomously give
 
 ### Installation
 
-You can install Explicit Agent directly from [PyPI](https://pypi.org/project/explicit-agent/0.1.1/):
+You can install Explicit Agent directly from [PyPI](https://pypi.org/project/explicit-agent/):
 
 ```bash
 pip install explicit-agent
@@ -127,8 +127,6 @@ final_state = agent.run(
 # When execution completes, final_state contains the agent's final state
 # A StopTool will trigger completion, or the agent will stop when budget is exhausted
 ```
-
-
 
 ## Core Concepts
 Explicit Agent is built around a few simple concepts.
