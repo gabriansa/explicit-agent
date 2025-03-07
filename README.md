@@ -12,6 +12,7 @@ A minimalist, transparent framework for building AI agents with full user contro
 - [Core Concepts](#core-concepts)
   - [Agent State](#agent-state)
   - [Tool Types](#tool-types)
+- [When is the Explicit Agent Framework Useful?](#when-is-the-explicit-agent-useful)
 
 
 ## Why Explicit Agent?
@@ -26,6 +27,7 @@ Most agentic frameworks are overengineered with layers of abstraction that obscu
 This framework provides the minimum viable infrastructure for running AI agents while maintaining full visibility into their operation.
 
 At the end of the day, an agent should be able to solve a task autonomously given a set of tools. And this is it.
+
 ## Get Started
 
 ### Installation
@@ -102,7 +104,6 @@ When you are done with the calculation, use the `ShowResult` tool to show the fi
 agent = ExplicitAgent(
     api_key=api_key,  # Your API key for the LLM provider
     base_url=base_url,  # Base URL for the provider (e.g., OpenAI, Azure, etc.)
-    system_prompt=system_prompt,  # Instructions for the agent
     initial_state={"result": None},  # Initialize the agent's state - a shared memory between tools
     verbose=True  # Print detailed logs of what's happening
 )
@@ -121,6 +122,7 @@ Do the following calculations:
 final_state = agent.run(
     model="openai/gpt-4o-mini",  # LLM model to use
     prompt=prompt,               # User's instructions
+    system_prompt=system_prompt,  # Instructions for the agent
     budget=10,                   # Maximum number of steps (tool calls) before forced termination
     tools=[Multiply, ShowResult], # List of available tools
 )
@@ -163,6 +165,19 @@ For more advanced usage and detailed documentation, see the [examples](examples)
 - [Calculator Example](examples/calculator.py): A simple calculator agent that performs arithmetic operations
 - [Shopping Cart Example](examples/shopping_cart.py): A more complex example of a shopping assistant that manages a cart
 - [PhD Assistant](examples/phd_assistant.py): An advanced example of an agent that helps with academic research and writing
+
+# When is the Explicit Agent Useful?
+
+The Explicit Agent shines in situations where tasks mimic human workflows that involve exploration, decision-making, and adaptability. Here’s a clear definition:
+- **Unstructured or Semi-Structured Tasks**: The framework excels when tasks don’t follow a rigid, predefined path and require the agent to adjust its approach based on new information or evolving requirements.
+
+- **Multi-Step Processes with Tool Usage**: It’s ideal for tasks that involve multiple actions or tools, where the agent must decide which tool to use and in what order, depending on the current context.
+
+- **State Management Across Steps**: The agent’s ability to maintain and update a shared state allows it to track progress, share information between tools, and build on previous results.
+
+- **Human-Like Reasoning**: It’s best suited for scenarios where judgment, exploration, or iterative refinement—qualities typically associated with human decision-making—are beneficial.
+
+In short, use this framework when you need an AI agent to autonomously handle complex, real-world problems that require transparency, control, and a sequence of thoughtful steps—much like a human would.
 
 ## License
 

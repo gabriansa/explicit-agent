@@ -103,7 +103,6 @@ if __name__ == "__main__":
     calculator = ExplicitAgent(
         api_key=api_key,
         base_url=base_url,
-        system_prompt=system_prompt,
         initial_state={"result": None},
         verbose=True  # Set to True to see detailed logs
     )
@@ -123,6 +122,7 @@ if __name__ == "__main__":
     final_state = calculator.run(
         model="openai/gpt-4o-mini",  # Or any other supported model
         prompt=calculation_task,
+        system_prompt=system_prompt,
         budget=10,  # Maximum number of tool calls before forced termination
         tools=[Add, Subtract, Multiply, Divide, Power, SquareRoot, ShowResult],
     )

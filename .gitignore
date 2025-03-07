@@ -173,3 +173,4 @@ cython_debug/
 # Misc
 .DS_Store
 PyPI.md
+test.py

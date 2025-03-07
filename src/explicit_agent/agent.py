@@ -1,6 +1,5 @@
 import json
 from typing import Optional, List, Any, Type, Dict
-from collections.abc import Hashable
 
 from openai import OpenAI
 from rich.console import Console
@@ -15,7 +14,6 @@ class ExplicitAgent:
         self,
         api_key: str,
         base_url: Optional[str] = None,
-        system_prompt: Optional[str] = None,
         initial_state: Optional[Any] = {},
         verbose: bool = True,
     ):
@@ -24,39 +22,19 @@ class ExplicitAgent:
         This uses the OpenAI API.
 
         Args:
-            `api_key`: The API key for the provider (e.g. OpenAI, OpenRouter, Anthropic, etc.)
-            `base_url`: The base URL for the provider (e.g. OpenAI, OpenRouter, Anthropic, etc.)
-            `system_prompt`: Optional system prompt to guide the agent's behavior
-            `initial_state`: Optional initial state for the agent. Must be a mutable object (e.g., dict, list)
-            `verbose`: Whether to print verbose output to the console (default: True)
-
-        Raises:
-            ValueError: If initial_state is provided but is an immutable type
-            ValueError: If the OpenAI client cannot be initialized
+            `api_key`: The API key for the provider (e.g. OpenAI, OpenRouter, Anthropic, etc.).
+            `base_url`: The base URL for the provider (e.g. OpenAI, OpenRouter, Anthropic, etc.).
+            `initial_state`: Optional initial state for the agent. Must be a mutable object (e.g., dict, list).
+            `verbose`: Whether to print verbose output to the console (default: True).
         """
 
         if initial_state is not None:
-            immutable_types = (
-                int,
-                float,
-                str,
-                bool,
-                tuple,
-                frozenset,
-                bytes,
-                type(None),
-            )
-            if isinstance(initial_state, immutable_types):
+            try:
+                hash(initial_state)
                 raise ValueError(
                     f"Initial state must be mutable. Got immutable type: {type(initial_state)}. "
                     "Use a mutable type like dict, list, or a custom class instead."
                 )
-            try:
-                if isinstance(initial_state, Hashable):
-                    raise ValueError(
-                        f"Initial state must be mutable. Got hashable (likely immutable) type: {type(initial_state)}. "
-                        "Use a mutable type like dict, list, or a custom class instead."
-                    )
             except TypeError:
                 pass
 
@@ -65,20 +43,15 @@ class ExplicitAgent:
                 api_key=api_key,
                 base_url=base_url,
             )
-        except Exception:
-            error_traceback = traceback.format_exc()
-            raise ValueError(f"Error initializing OpenAI client: {error_traceback}")
+        except Exception as e:
+            self.logger.error(f"Error initializing OpenAI client: {e}")
+            raise
 
         self.console = Console()
         self.logger = logging.getLogger("explicit_agent")
         self.verbose = verbose
 
-        if system_prompt:
-            self.messages: List[Dict[str, Any]] = [
-                {"role": "system", "content": system_prompt}
-            ]
-        else:
-            self.messages: List[Dict[str, Any]] = []
+        self.messages: List[Dict[str, Any]] = []
 
         self.state: Any = initial_state
 
@@ -87,22 +60,33 @@ class ExplicitAgent:
         Process multiple tool calls and execute them sequentially.
 
         Args:
-            `tool_calls`: List of tool calls from the LLM response
-            `tools`: Dictionary mapping tool classes to their OpenAI definitions
+            `tool_calls`: List of tool calls from the LLM response.
+            `tools`: Dictionary mapping tool classes to their OpenAI definitions.
 
         Returns:
-            `bool`: Whether to stop execution of the agent
+            `bool`: Whether to stop execution of the agent.
         """
         for tool_call in tool_calls:
             tool_name = tool_call.function.name
-            try:
-                tool_args = json.loads(tool_call.function.arguments)
-            except Exception as e:
-                error_traceback = traceback.format_exc()
+
+            tool_class = next(
+                (tool for tool in tools.keys() if tool.__name__ == tool_name), None
+            )
+
+            if not tool_class:
                 self._handle_tool_error(
                     tool_call.id,
-                    f"Invalid tool arguments: {e}",
-                    f"Invalid tool arguments:\n{error_traceback}",
+                    f"Unknown tool: '{tool_name}'"
+                )
+                continue
+
+            try:
+                tool_args = json.loads(tool_call.function.arguments)
+                tool_instance = tool_class(**tool_args)
+            except Exception as e:
+                self._handle_tool_error(
+                    tool_call.id,
+                    f"Invalid tool arguments for '{tool_name}' tool.\nGiven arguments: {tool_call.function.arguments}\nError: {e}",
                 )
                 continue
 
@@ -113,17 +97,9 @@ class ExplicitAgent:
                 )
 
             try:
-                tool_class = next(
-                    (tool for tool in tools.keys() if tool.__name__ == tool_name), None
-                )
-                if not tool_class:
-                    raise ValueError(f"Unknown tool: {tool_name}")
-
                 is_stop_tool = issubclass(tool_class, StopTool)
-
                 is_stateful = tool_class.is_stateful()
 
-                tool_instance = tool_class(**tool_args)
                 if is_stateful:
                     result = tool_instance.execute(state=self.state)
                 else:
@@ -164,29 +140,29 @@ class ExplicitAgent:
                     return True
 
             except Exception as e:
-                error_traceback = traceback.format_exc()
                 self._handle_tool_error(
                     tool_call.id,
-                    f"Error executing {tool_name}: {str(e)}",
-                    f"Error executing {tool_name}:\n{error_traceback}",
+                    f"Error executing '{tool_name}' tool: {str(e)}",
                 )
+                continue
 
         return False
 
     def _handle_tool_error(
-        self, tool_call_id: str, error_msg: str, error_traceback: str
+        self, tool_call_id: str, error_msg: str
     ) -> None:
         """
         Handle and log tool execution errors.
 
         Args:
-            `tool_call_id`: The ID of the tool call
-            `error_msg`: The error message
-            `error_traceback`: The error traceback for verbose output
+            `tool_call_id`: The ID of the tool call.
+            `error_msg`: The error message.
         """
-        self.logger.error(error_msg)
+
+        error_traceback = traceback.format_exc()
+        self.logger.error(error_traceback)
         if self.verbose:
-            self.console.print(f"[bold red1]{error_traceback}[/bold red1]")
+            self.console.print(f"[bold red1]{error_msg}[/bold red1]")
         self.messages.append(
             {
                 "role": "tool",
@@ -199,6 +175,7 @@ class ExplicitAgent:
         self,
         model: str,
         prompt: str,
+        system_prompt: Optional[str] = None,
         budget: int = 20,
         tools: Optional[List[Type[BaseTool]]] = None,
         tool_choice: str = "auto",
@@ -209,15 +186,16 @@ class ExplicitAgent:
         Run the ExplicitAgent with the given prompt and tools.
 
         Args:
-            `model`: The model to use for the agent. The model name format depends on the provider specified during initialization (e.g., "gpt-4o-mini" for OpenAI, "openai/gpt-4o-mini" for OpenRouter, etc.)
-            `prompt`: The user's request to process
+            `model`: The model to use for the agent. The model name format depends on the provider specified during initialization (e.g., "gpt-4o-mini" for OpenAI, "openai/gpt-4o-mini" for OpenRouter, etc.).
+            `prompt`: The user's request to process.
+            `system_prompt`: Optional system prompt to guide the agent's behavior. If provided, it will replace any existing system prompt in the messages.
             `budget`: The maximum number of steps to run. The agent will stop if it reaches this limit.
             `tools`: List of tool classes. If no tools are provided, the agent will act as a simple chatbot.
-            `tool_choice`: The tool choice to use for the agent. Can be `"auto"`, `"required"`, or a specific tool (i.e `{"type": "function", "function": {"name": "get_weather"}}`)
-            `parallel_tool_calls`: Whether to allow the model to call multiple functions in parallel
-            `**kwargs`: Additional keyword arguments to pass to the OpenAI API (i.e. `temperature`, `max_tokens`, `reasoning_effort`, etc.)
+            `tool_choice`: The tool choice to use for the agent. Can be `"auto"`, `"required"`, or a specific tool (i.e `{"type": "function", "function": {"name": "get_weather"}}`).
+            `parallel_tool_calls`: Whether to allow the model to call multiple functions in parallel.
+            `**kwargs`: Additional keyword arguments to pass to the OpenAI API (i.e. `temperature`, `max_tokens`, `reasoning_effort`, etc.).
         Returns:
-            `Any`: The final state of the agent
+            `Any`: The final state of the agent.
         """
 
         if not model or not isinstance(model, str):
@@ -246,6 +224,10 @@ class ExplicitAgent:
                         f"Tool class '{tool.__name__}' must be a subclass of BaseTool or StopTool"
                     )
             tools = register_tools(tools)
+
+        if system_prompt:
+            self.messages = [msg for msg in self.messages if msg.get("role") != "system"]
+            self.messages.insert(0, {"role": "system", "content": system_prompt})
 
         self.messages.append({"role": "user", "content": prompt})
 
@@ -313,11 +295,7 @@ class ExplicitAgent:
                     self.logger.error(error_msg)
                     raise Exception(error_msg)
 
-            except Exception:
-                error_traceback = traceback.format_exc()
-                self.logger.error(f"Error while running agent: {error_traceback}")
-                if self.verbose:
-                    self.console.print(
-                        f"[bold red1]Error while running agent: {error_traceback}[/bold red1]"
-                    )
-                raise Exception(error_traceback)
+            except Exception as e:
+                error_msg = f"Error while running agent: {str(e)}"
+                self.logger.error(f"Error while running agent: {traceback.format_exc()}")
+                raise Exception(error_msg)

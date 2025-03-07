@@ -205,7 +205,6 @@ if __name__ == "__main__":
     shopping_agent = ExplicitAgent(
         api_key=api_key,
         base_url=base_url,
-        system_prompt=system_prompt,
         initial_state={},  # Empty initial state
         verbose=True  # Set to True to see detailed logs
     )
@@ -242,6 +241,7 @@ if __name__ == "__main__":
         updated_state = shopping_agent.run(
             model="openai/gpt-4o-mini",  # Or any other supported model
             prompt=instruction,
+            system_prompt=system_prompt,
             budget=6,  # Smaller budget for each individual instruction
             tools=tools,
         )
