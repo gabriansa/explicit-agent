@@ -4,7 +4,6 @@ from typing import Optional, List, Any, Type, Dict
 from openai import OpenAI
 from rich.console import Console
 import logging
-import traceback
 
 from .tools import register_tools, StopTool, BaseTool
 
@@ -154,8 +153,7 @@ class ExplicitAgent:
             `error_msg`: The error message.
         """
 
-        error_traceback = traceback.format_exc()
-        self.logger.error(error_traceback)
+        self.logger.error(error_msg)
         if self.verbose:
             self.console.print(f"[bold red1]{error_msg}[/bold red1]")
         self.messages.append(
@@ -297,7 +295,7 @@ class ExplicitAgent:
                     )
                     if self.verbose:
                         self.console.print(
-                            f"[bold yellow]Warning: Received {len(message.tool_calls)} tool calls when parallel_tool_calls=False. Processing only the first one.[/bold yellow]"
+                            f"[yellow]Warning: Received {len(message.tool_calls)} tool calls when parallel_tool_calls=False. Processing only the first one.[/yellow]"
                         )
                     message = message.model_copy(
                         update={"tool_calls": [message.tool_calls[0]]}
@@ -315,7 +313,5 @@ class ExplicitAgent:
             raise
 
         except Exception as e:
-            self.logger.error(
-                f"Unexpected error while running agent: {traceback.format_exc()}"
-            )
+            self.logger.error(f"Unexpected error while running agent: {str(e)}")
             raise RuntimeError(f"Unexpected error while running agent: {str(e)}") from e
