@@ -74,10 +74,7 @@ class ExplicitAgent:
             )
 
             if not tool_class:
-                self._handle_tool_error(
-                    tool_call.id,
-                    f"Unknown tool: '{tool_name}'"
-                )
+                self._handle_tool_error(tool_call.id, f"Unknown tool: '{tool_name}'")
                 continue
 
             try:
@@ -148,9 +145,7 @@ class ExplicitAgent:
 
         return False
 
-    def _handle_tool_error(
-        self, tool_call_id: str, error_msg: str
-    ) -> None:
+    def _handle_tool_error(self, tool_call_id: str, error_msg: str) -> None:
         """
         Handle and log tool execution errors.
 
@@ -197,60 +192,64 @@ class ExplicitAgent:
         Returns:
             `Any`: The final state of the agent.
         """
+        try:
 
-        if not model or not isinstance(model, str):
-            raise ValueError("Model name must be a non-empty string")
+            if not model or not isinstance(model, str):
+                raise ValueError("Model name must be a non-empty string")
 
-        if not prompt or not isinstance(prompt, str):
-            raise ValueError("Prompt must be a non-empty string")
+            if not prompt or not isinstance(prompt, str):
+                raise ValueError("Prompt must be a non-empty string")
 
-        if not isinstance(budget, int) or budget <= 0:
-            raise ValueError("Budget must be a positive integer")
+            if not isinstance(budget, int) or budget <= 0:
+                raise ValueError("Budget must be a positive integer")
 
-        if tool_choice not in ["auto", "required"] and not isinstance(
-            tool_choice, dict
-        ):
-            raise ValueError(
-                "Tool choice must be 'auto', 'required', or a specific tool configuration"
-            )
-
-        if not tools:
-            tools = {}
-            tool_choice = "auto"
-        else:
-            for tool in tools:
-                if not issubclass(tool, BaseTool):
-                    raise ValueError(
-                        f"Tool class '{tool.__name__}' must be a subclass of BaseTool or StopTool"
-                    )
-            tools = register_tools(tools)
-
-        if system_prompt:
-            self.messages = [msg for msg in self.messages if msg.get("role") != "system"]
-            self.messages.insert(0, {"role": "system", "content": system_prompt})
-
-        self.messages.append({"role": "user", "content": prompt})
-
-        current_step = 0
-
-        while True:
-            current_step += 1
-
-            self.logger.info(f"Agent Step {current_step}/{budget}")
-            if self.verbose:
-                self.console.rule(
-                    f"[bold green_yellow]Agent Step {current_step}/{budget}[/bold green_yellow]",
-                    style="green_yellow",
+            if tool_choice not in ["auto", "required"] and not isinstance(
+                tool_choice, dict
+            ):
+                raise ValueError(
+                    "Tool choice must be 'auto', 'required', or a specific tool configuration"
                 )
 
-            if current_step >= budget:
-                warning_msg = f"Warning: The agent has reached the maximum budget of steps without completion (budget: {budget})"
-                self.logger.warning(warning_msg)
-                if self.verbose:
-                    self.console.print(f"[bold orange1]{warning_msg}[/bold orange1]")
-                return self.state
+            if not tools:
+                tools = {}
+                tool_choice = "auto"
+            else:
+                for tool in tools:
+                    if not issubclass(tool, BaseTool):
+                        raise ValueError(
+                            f"Tool class '{tool.__name__}' must be a subclass of BaseTool or StopTool"
+                        )
+                tools = register_tools(tools)
 
-            try:
+            if system_prompt:
+                self.messages = [
+                    msg for msg in self.messages if msg.get("role") != "system"
+                ]
+                self.messages.insert(0, {"role": "system", "content": system_prompt})
+
+            self.messages.append({"role": "user", "content": prompt})
+
+            current_step = 0
+
+            while True:
+                current_step += 1
+
+                self.logger.info(f"Agent Step {current_step}/{budget}")
+                if self.verbose:
+                    self.console.rule(
+                        f"[bold green_yellow]Agent Step {current_step}/{budget}[/bold green_yellow]",
+                        style="green_yellow",
+                    )
+
+                if current_step >= budget:
+                    warning_msg = f"Warning: The agent has reached the maximum budget of steps without completion (budget: {budget})"
+                    self.logger.warning(warning_msg)
+                    if self.verbose:
+                        self.console.print(
+                            f"[bold orange1]{warning_msg}[/bold orange1]"
+                        )
+                    return self.state
+
                 response = self.client.chat.completions.create(
                     model=model,
                     messages=self.messages,
@@ -260,42 +259,63 @@ class ExplicitAgent:
                     **kwargs,
                 )
 
-                if response.choices:
-                    message = response.choices[0].message
+                # Check if response contains error information
+                if hasattr(response, "error") and response.error:
+                    error_details = response.error
+                    error_message = error_details.get("message", "Unknown API error")
+                    error_code = error_details.get("code", "unknown")
 
-                    if not message.tool_calls:
-                        self.logger.info(f"Agent Message: {message.content}")
-                        if self.verbose:
-                            self.console.print(
-                                f"[bold blue]Agent Message:[/bold blue] {message.content}"
-                            )
-                        continue
+                    # Extract more detailed error information if available
+                    if (
+                        "metadata" in error_details
+                        and "raw" in error_details["metadata"]
+                    ):
+                        try:
+                            raw_error = json.loads(error_details["metadata"]["raw"])
+                            if "error" in raw_error and "message" in raw_error["error"]:
+                                error_message = raw_error["error"]["message"]
+                        except (json.JSONDecodeError, KeyError):
+                            pass
 
-                    if not parallel_tool_calls and len(message.tool_calls) > 1:
-                        self.logger.warning(
-                            f"Received {len(message.tool_calls)} tool calls when parallel_tool_calls=False. Processing only the first one."
-                        )
-                        if self.verbose:
-                            self.console.print(
-                                f"[bold yellow]Warning: Received {len(message.tool_calls)} tool calls when parallel_tool_calls=False. Processing only the first one.[/bold yellow]"
-                            )
-                        message = message.model_copy(
-                            update={"tool_calls": [message.tool_calls[0]]}
-                        )
-
-                    self.messages.append(message)
-
-                    tool_calls = message.tool_calls
-                    done = self._process_tool_calls(tool_calls=tool_calls, tools=tools)
-
-                    if done:
-                        return self.state
-                else:
-                    error_msg = f"No response from client: {response}"
+                    error_msg = f"API Error ({error_code}): {error_message}"
                     self.logger.error(error_msg)
-                    raise Exception(error_msg)
+                    raise ValueError(error_msg)
 
-            except Exception as e:
-                error_msg = f"Error while running agent: {str(e)}"
-                self.logger.error(f"Error while running agent: {traceback.format_exc()}")
-                raise Exception(error_msg)
+                message = response.choices[0].message
+
+                if not message.tool_calls:
+                    self.logger.info(f"Agent Message: {message.content}")
+                    if self.verbose:
+                        self.console.print(
+                            f"[bold blue]Agent Message:[/bold blue] {message.content}"
+                        )
+                    continue
+
+                if not parallel_tool_calls and len(message.tool_calls) > 1:
+                    self.logger.warning(
+                        f"Received {len(message.tool_calls)} tool calls when parallel_tool_calls=False. Processing only the first one."
+                    )
+                    if self.verbose:
+                        self.console.print(
+                            f"[bold yellow]Warning: Received {len(message.tool_calls)} tool calls when parallel_tool_calls=False. Processing only the first one.[/bold yellow]"
+                        )
+                    message = message.model_copy(
+                        update={"tool_calls": [message.tool_calls[0]]}
+                    )
+
+                self.messages.append(message)
+
+                tool_calls = message.tool_calls
+                done = self._process_tool_calls(tool_calls=tool_calls, tools=tools)
+
+                if done:
+                    return self.state
+
+        except ValueError as e:
+            raise
+
+        except Exception as e:
+            self.logger.error(
+                f"Unexpected error while running agent: {traceback.format_exc()}"
+            )
+            raise RuntimeError(f"Unexpected error while running agent: {str(e)}") from e
