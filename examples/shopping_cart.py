@@ -206,7 +206,7 @@ if __name__ == "__main__":
         api_key=api_key,
         base_url=base_url,
         initial_state={},  # Empty initial state
-        verbose=True  # Set to True to see detailed logs
+        verbose="detailed"
     )
     
     # Define individual shopping instructions

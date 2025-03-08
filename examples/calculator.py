@@ -104,7 +104,7 @@ if __name__ == "__main__":
         api_key=api_key,
         base_url=base_url,
         initial_state={"result": None},
-        verbose=True  # Set to True to see detailed logs
+        verbose="detailed"
     )
 
     # Example calculation task

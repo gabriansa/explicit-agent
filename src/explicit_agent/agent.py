@@ -1,8 +1,9 @@
 import json
-from typing import Optional, List, Any, Type, Dict
+from typing import Optional, List, Any, Type, Dict, Literal
 
 from openai import OpenAI
 from rich.console import Console
+from rich.pretty import pprint
 import logging
 
 from .tools import register_tools, StopTool, BaseTool
@@ -14,7 +15,7 @@ class ExplicitAgent:
         api_key: str,
         base_url: Optional[str] = None,
         initial_state: Optional[Any] = {},
-        verbose: bool = True,
+        verbose: Optional[Literal[None, "basic", "detailed"]] = "basic",
     ):
         """
         Initialize the ExplicitAgent with the given API key, base URL, and model.
@@ -24,7 +25,7 @@ class ExplicitAgent:
             `api_key`: The API key for the provider (e.g. OpenAI, OpenRouter, Anthropic, etc.).
             `base_url`: The base URL for the provider (e.g. OpenAI, OpenRouter, Anthropic, etc.).
             `initial_state`: Optional initial state for the agent. Must be a mutable object (e.g., dict, list).
-            `verbose`: Whether to print verbose output to the console (default: True).
+            `verbose`: Whether to print verbose output to the console. Can be `None` (no verbose output), `"basic"` (basic verbose output), or `"detailed"` (detailed verbose output). Default is `"basic"`.
         """
 
         if initial_state is not None:
@@ -46,9 +47,13 @@ class ExplicitAgent:
             self.logger.error(f"Error initializing OpenAI client: {e}")
             raise
 
+        if verbose not in [None, "basic", "detailed"]:
+            raise ValueError("Verbose must be None, 'basic', or 'detailed'")
+
+        self.verbose = verbose
+
         self.console = Console()
         self.logger = logging.getLogger("explicit_agent")
-        self.verbose = verbose
 
         self.messages: List[Dict[str, Any]] = []
 
@@ -119,13 +124,27 @@ class ExplicitAgent:
 
                 self.logger.info(f"Tool Call Result: {tool_name}(...) -> {result}")
                 if self.verbose:
-                    self.console.print(
-                        f"[bold blue]Tool Call Result:[/bold blue] {tool_name}(...) -> {result}"
-                    )
+                    if self.verbose == "basic":
+                        self.console.print(
+                            f"[bold blue]Tool Call Result:[/bold blue] {tool_name}(...) ->"
+                        )
+                        pprint(result, console=self.console, expand_all=True, max_length=20)
+                    else:
+                        self.console.print(
+                            f"[bold blue]Tool Call Result:[/bold blue] {tool_name}(...) ->"
+                        )
+                        pprint(result, console=self.console, expand_all=True, max_length=20)
 
                 self.logger.info(f"State: {self.state}")
                 if self.verbose and self.state:
-                    self.console.print(f"[bold blue]State:[/bold blue] {self.state}")
+                    if self.verbose == "basic":
+                        self.console.print(
+                            f"[bold blue]State:[/bold blue]"
+                        )
+                        pprint(self.state, console=self.console, expand_all=True, max_length=20)
+                    else:
+                        self.console.print("[bold blue]State:[/bold blue]")
+                        pprint(self.state, console=self.console, expand_all=True)
 
                 if is_stop_tool:
                     self.logger.info("Agent execution complete")
@@ -164,6 +183,15 @@ class ExplicitAgent:
             }
         )
 
+    def _display_tool_usage_stats(self, tool_usage_stats: Dict[str, int], total_tool_calls: int) -> None:
+        """
+        Display tool usage statistics.
+        """
+        self.console.print("\n[bold blue]Tool Usage Statistics:[/bold blue]")
+        for tool_name, count in tool_usage_stats.items():
+            percentage = (count / total_tool_calls) * 100 if total_tool_calls > 0 else 0
+            self.console.print(f"- {tool_name}: {count} ({percentage:.1f}%)")
+
     def run(
         self,
         model: str,
@@ -191,6 +219,8 @@ class ExplicitAgent:
             `Any`: The final state of the agent.
         """
         try:
+            tool_usage_stats: Dict[str, int] = {}
+            total_tool_calls: int = 0
 
             if not model or not isinstance(model, str):
                 raise ValueError("Model name must be a non-empty string")
@@ -221,7 +251,7 @@ class ExplicitAgent:
 
             if system_prompt:
                 self.messages = [
-                    msg for msg in self.messages if msg.get("role") != "system"
+                    msg for msg in self.messages if msg.get("role", None) != "system"
                 ]
                 self.messages.insert(0, {"role": "system", "content": system_prompt})
 
@@ -257,13 +287,11 @@ class ExplicitAgent:
                     **kwargs,
                 )
 
-                # Check if response contains error information
                 if hasattr(response, "error") and response.error:
                     error_details = response.error
                     error_message = error_details.get("message", "Unknown API error")
                     error_code = error_details.get("code", "unknown")
 
-                    # Extract more detailed error information if available
                     if (
                         "metadata" in error_details
                         and "raw" in error_details["metadata"]
@@ -282,6 +310,7 @@ class ExplicitAgent:
                 message = response.choices[0].message
 
                 if not message.tool_calls:
+                    self.messages.append(message.model_dump())
                     self.logger.info(f"Agent Message: {message.content}")
                     if self.verbose:
                         self.console.print(
@@ -301,12 +330,34 @@ class ExplicitAgent:
                         update={"tool_calls": [message.tool_calls[0]]}
                     )
 
-                self.messages.append(message)
+                self.messages.append(message.model_dump())
 
                 tool_calls = message.tool_calls
+                
+                for tool_call in tool_calls:
+                    tool_name = tool_call.function.name
+                    tool_usage_stats[tool_name] = tool_usage_stats.get(tool_name, 0) + 1
+                    total_tool_calls += 1
+                
                 done = self._process_tool_calls(tool_calls=tool_calls, tools=tools)
 
                 if done:
+                    if self.verbose and tool_usage_stats:
+                        self._display_tool_usage_stats(tool_usage_stats, total_tool_calls)
+                    
+                    return self.state
+
+                if current_step >= budget:
+                    warning_msg = f"Warning: The agent has reached the maximum budget of steps without completion (budget: {budget})"
+                    self.logger.warning(warning_msg)
+                    if self.verbose:
+                        self.console.print(
+                            f"[bold orange1]{warning_msg}[/bold orange1]"
+                        )
+                    
+                    if self.verbose and tool_usage_stats:
+                        self._display_tool_usage_stats(tool_usage_stats, total_tool_calls)
+                    
                     return self.state
 
         except ValueError as e:
