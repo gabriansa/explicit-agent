@@ -105,7 +105,7 @@ agent = ExplicitAgent(
     api_key=api_key,  # Your API key for the LLM provider
     base_url=base_url,  # Base URL for the provider (e.g., OpenAI, Azure, etc.)
     initial_state={"result": None},  # Initialize the agent's state - a shared memory between tools
-    verbose=True  # Print detailed logs of what's happening
+    verbose="detailed"  # Print detailed logs of what's happening
 )
 
 # ========= USER PROMPT =========
