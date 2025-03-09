@@ -3,7 +3,7 @@ from typing import Optional, List, Any, Type, Dict, Literal
 
 from openai import OpenAI
 from rich.console import Console
-from rich.pretty import pprint
+from rich.pretty import Pretty
 import logging
 
 from .tools import register_tools, StopTool, BaseTool
@@ -123,28 +123,22 @@ class ExplicitAgent:
                 self.messages.append(tool_call_response)
 
                 self.logger.info(f"Tool Call Result: {tool_name}(...) -> {result}")
-                if self.verbose:
-                    if self.verbose == "basic":
-                        self.console.print(
-                            f"[bold blue]Tool Call Result:[/bold blue] {tool_name}(...) ->"
-                        )
-                        pprint(result, console=self.console, expand_all=True, max_length=20)
-                    else:
-                        self.console.print(
-                            f"[bold blue]Tool Call Result:[/bold blue] {tool_name}(...) ->"
-                        )
-                        pprint(result, console=self.console, expand_all=True, max_length=20)
+                if self.verbose == "basic":
+                    self.console.print("[bold blue]Tool Execution Complete[/bold blue]")
+                elif self.verbose == "detailed":
+                    self.console.print(
+                        f"[bold blue]Tool Call Result:[/bold blue] {tool_name}(...) ->"
+                    )
+                    self.console.print(Pretty(result))
 
                 self.logger.info(f"State: {self.state}")
-                if self.verbose and self.state:
-                    if self.verbose == "basic":
-                        self.console.print(
-                            f"[bold blue]State:[/bold blue]"
-                        )
-                        pprint(self.state, console=self.console, expand_all=True, max_length=20)
-                    else:
-                        self.console.print("[bold blue]State:[/bold blue]")
-                        pprint(self.state, console=self.console, expand_all=True)
+                if self.verbose == "basic" and self.state:
+                    self.console.print("[bold blue]State Updated[/bold blue]")
+                elif self.verbose == "detailed" and self.state:
+                    self.console.print("[bold blue]State:[/bold blue]")
+                    self.console.print(Pretty(self.state))
+
+                self.console.print()
 
                 if is_stop_tool:
                     self.logger.info("Agent execution complete")
@@ -155,11 +149,7 @@ class ExplicitAgent:
                     return True
 
             except Exception as e:
-                self._handle_tool_error(
-                    tool_call.id,
-                    f"Error executing '{tool_name}' tool: {str(e)}",
-                )
-                continue
+                raise RuntimeError(f"Error executing '{tool_name}' tool: {str(e)}")
 
         return False
 
@@ -182,15 +172,6 @@ class ExplicitAgent:
                 "content": json.dumps({"error": error_msg}),
             }
         )
-
-    def _display_tool_usage_stats(self, tool_usage_stats: Dict[str, int], total_tool_calls: int) -> None:
-        """
-        Display tool usage statistics.
-        """
-        self.console.print("\n[bold blue]Tool Usage Statistics:[/bold blue]")
-        for tool_name, count in tool_usage_stats.items():
-            percentage = (count / total_tool_calls) * 100 if total_tool_calls > 0 else 0
-            self.console.print(f"- {tool_name}: {count} ({percentage:.1f}%)")
 
     def run(
         self,
@@ -219,9 +200,6 @@ class ExplicitAgent:
             `Any`: The final state of the agent.
         """
         try:
-            tool_usage_stats: Dict[str, int] = {}
-            total_tool_calls: int = 0
-
             if not model or not isinstance(model, str):
                 raise ValueError("Model name must be a non-empty string")
 
@@ -334,17 +312,9 @@ class ExplicitAgent:
 
                 tool_calls = message.tool_calls
                 
-                for tool_call in tool_calls:
-                    tool_name = tool_call.function.name
-                    tool_usage_stats[tool_name] = tool_usage_stats.get(tool_name, 0) + 1
-                    total_tool_calls += 1
-                
                 done = self._process_tool_calls(tool_calls=tool_calls, tools=tools)
 
                 if done:
-                    if self.verbose and tool_usage_stats:
-                        self._display_tool_usage_stats(tool_usage_stats, total_tool_calls)
-                    
                     return self.state
 
                 if current_step >= budget:
@@ -353,11 +323,7 @@ class ExplicitAgent:
                     if self.verbose:
                         self.console.print(
                             f"[bold orange1]{warning_msg}[/bold orange1]"
-                        )
-                    
-                    if self.verbose and tool_usage_stats:
-                        self._display_tool_usage_stats(tool_usage_stats, total_tool_calls)
-                    
+                        )                
                     return self.state
 
         except ValueError as e:
@@ -365,4 +331,4 @@ class ExplicitAgent:
 
         except Exception as e:
             self.logger.error(f"Unexpected error while running agent: {str(e)}")
-            raise RuntimeError(f"Unexpected error while running agent: {str(e)}") from e
+            raise RuntimeError(f"Unexpected error while running agent: {str(e)}")
