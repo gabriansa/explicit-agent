@@ -7,12 +7,9 @@ from pydantic import BaseModel
 
 
 class BaseTool(BaseModel):
-    """Base class for tools.
-
-    Tools can be stateful or stateless based on their `execute` method signature:
-    - If `execute` method includes a `state` parameter, it's considered stateful (e.g `def execute(state, **kwargs)`)
-    - If `execute` method doesn't have a `state` parameter, it's considered stateless (e.g `def execute(**kwargs)`)
-    - If no `execute` method is provided, a default implementation returning `None` will be used.
+    """
+    Base class for tools.
+    If no `execute` method is provided, a default implementation returning `None` will be used.
     """
 
     def __init_subclass__(cls, **kwargs):
@@ -23,45 +20,36 @@ class BaseTool(BaseModel):
                 f"A default method returning None will be used."
             )
 
-    def execute(self, state: Optional[Any] = None, **kwargs) -> Any:
+    def execute(self) -> Any:
         """Execute the tool functionality
-
-        Args:
-            `state`: The current state of the agent (optional, making the tool stateful)
-            `**kwargs`: Tool-specific arguments defined by the tool's Pydantic fields
+        
+        This method should be implemented by subclasses to define the tool's behavior.
+        Within the implementation, you can access any defined variables as self.variable
+        (e.g., self.name, self.value, etc.)
 
         Returns:
             `Any`: The result of the tool execution
         """
-        pass
-
-    @classmethod
-    def is_stateful(cls) -> bool:
-        """Determine if this tool is stateful by checking for a 'state' parameter in execute"""
-        sig = inspect.signature(cls.execute)
-        return "state" in sig.parameters
+        return None
 
 
 class StopTool(BaseTool):
-    """Base class for stop tools.
-
-    Tools can be stateful or stateless based on their `execute` method signature:
-    - If `execute` method includes a `state` parameter, it's considered stateful (e.g `def execute(state, **kwargs)`)
-    - If `execute` method doesn't have a `state` parameter, it's considered stateless (e.g `def execute(**kwargs)`)
-    - If no `execute` method is provided, a default implementation returning `None` will be used.
+    """
+    Base class for stop tools.
+    If no `execute` method is provided, a default implementation returning `None` will be used.
     """
 
-    def execute(self, state: Optional[Any] = None, **kwargs) -> Any:
+    def execute(self) -> Any:
         """Execute the stop tool functionality
 
-        Args:
-            `state`: The current state of the agent (optional, making the tool stateful)
-            `**kwargs`: Tool-specific arguments defined by the tool's Pydantic fields
+        This method should be implemented by subclasses to define the tool's behavior.
+        Within the implementation, you can access any defined variables as self.variable
+        (e.g., self.name, self.value, etc.)
 
         Returns:
             `Any`: The result of the tool execution
         """
-        pass
+        return None
 
 
 def register_tools(tool_classes: List[Type[BaseTool]]) -> Dict[Type, Any]:

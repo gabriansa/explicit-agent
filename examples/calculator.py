@@ -3,6 +3,11 @@ from explicit_agent.tools import BaseTool, StopTool
 
 from pydantic import Field
 
+
+# ========= DEFINING STATE =========
+# State is the context in which the calculator agent operates
+state = {}
+
 # ========= DEFINING TOOLS =========
 # Tools are the actions the calculator agent can perform
 
@@ -11,7 +16,8 @@ class Add(BaseTool):
     a: int | float  = Field(..., description="The first number to add")
     b: int | float  = Field(..., description="The second number to add")
 
-    def execute(self, state):
+    def execute(self):
+        print(f"Adding {self.a} + {self.b}")
         result = self.a + self.b
         state["result"] = result
         return f"Added {self.a} + {self.b} = {result}"
@@ -21,7 +27,7 @@ class Subtract(BaseTool):
     a: int | float  = Field(..., description="The first number")
     b: int | float  = Field(..., description="The second number")
 
-    def execute(self, state):
+    def execute(self):
         result = self.a - self.b
         state["result"] = result
         return f"Subtracted {self.a} - {self.b} = {result}"
@@ -31,7 +37,7 @@ class Multiply(BaseTool):
     a: int | float  = Field(..., description="The first number")
     b: int | float  = Field(..., description="The second number")
 
-    def execute(self, state):
+    def execute(self):
         result = self.a * self.b
         state["result"] = result
         return f"Multiplied {self.a} × {self.b} = {result}"
@@ -41,7 +47,7 @@ class Divide(BaseTool):
     a: int | float  = Field(..., description="The first number")
     b: int | float  = Field(..., description="The second number")
 
-    def execute(self, state):
+    def execute(self):
         if self.b == 0:
             return "Error: Cannot divide by zero"
         result = self.a / self.b
@@ -53,7 +59,7 @@ class Power(BaseTool):
     base: int | float  = Field(..., description="The base number")
     exponent: int | float  = Field(..., description="The exponent")
 
-    def execute(self, state):
+    def execute(self):
         result = self.base ** self.exponent
         state["result"] = result
         return f"Calculated {self.base} ^ {self.exponent} = {result}"
@@ -62,7 +68,7 @@ class SquareRoot(BaseTool):
     """Calculate the square root of a number"""
     number: int | float  = Field(..., description="The number to find square root of")
 
-    def execute(self, state):
+    def execute(self):
         if self.number < 0:
             return "Error: Cannot calculate square root of a negative number"
         result = self.number ** 0.5
@@ -72,7 +78,7 @@ class SquareRoot(BaseTool):
 class ShowResult(StopTool):
     """Show the final result and stop execution"""
 
-    def execute(self, state):
+    def execute(self):
         if "result" not in state or state["result"] is None:
             return "No result has been calculated yet."
         return f"Final result: {state['result']}"
@@ -103,8 +109,7 @@ if __name__ == "__main__":
     calculator = ExplicitAgent(
         api_key=api_key,
         base_url=base_url,
-        initial_state={"result": None},
-        verbose="detailed"
+        verbose=True
     )
 
     # Example calculation task
@@ -119,7 +124,7 @@ if __name__ == "__main__":
     """
 
     # Run the calculator agent
-    final_state = calculator.run(
+    calculator.run(
         model="openai/gpt-4o-mini",  # Or any other supported model
         prompt=calculation_task,
         system_prompt=system_prompt,
@@ -127,5 +132,5 @@ if __name__ == "__main__":
         tools=[Add, Subtract, Multiply, Divide, Power, SquareRoot, ShowResult],
     )
 
-    # final_state will contain the agent's final state after execution
-    print(f"Calculation completed with final state: {final_state}")
+    # state will contain the agent's final state after execution
+    print(f"Calculation completed with final state: {state}")

@@ -1,9 +1,8 @@
 import json
-from typing import Optional, List, Any, Type, Dict, Literal
+from typing import Optional, List, Any, Type, Dict
 
 from openai import OpenAI
 from rich.console import Console
-from rich.pretty import Pretty
 import logging
 
 from .tools import register_tools, StopTool, BaseTool
@@ -14,8 +13,7 @@ class ExplicitAgent:
         self,
         api_key: str,
         base_url: Optional[str] = None,
-        initial_state: Optional[Any] = {},
-        verbose: Optional[Literal[None, "basic", "detailed"]] = "basic",
+        verbose: bool = False,
     ):
         """
         Initialize the ExplicitAgent with the given API key, base URL, and model.
@@ -24,20 +22,8 @@ class ExplicitAgent:
         Args:
             `api_key`: The API key for the provider (e.g. OpenAI, OpenRouter, Anthropic, etc.).
             `base_url`: The base URL for the provider (e.g. OpenAI, OpenRouter, Anthropic, etc.).
-            `initial_state`: Optional initial state for the agent. Must be a mutable object (e.g., dict, list).
-            `verbose`: Whether to print verbose output to the console. Can be `None` (no verbose output), `"basic"` (basic verbose output), or `"detailed"` (detailed verbose output). Default is `"basic"`.
+            `verbose`: Whether to print verbose output to the console. Can be either `True` or `False`. Default is `False`. For more detailed verbose output, it is recommended to use print statements or other verbose methods directly in the implementation of your own agent.
         """
-
-        if initial_state is not None:
-            try:
-                hash(initial_state)
-                raise ValueError(
-                    f"Initial state must be mutable. Got immutable type: {type(initial_state)}. "
-                    "Use a mutable type like dict, list, or a custom class instead."
-                )
-            except TypeError:
-                pass
-
         try:
             self.client = OpenAI(
                 api_key=api_key,
@@ -47,17 +33,12 @@ class ExplicitAgent:
             self.logger.error(f"Error initializing OpenAI client: {e}")
             raise
 
-        if verbose not in [None, "basic", "detailed"]:
-            raise ValueError("Verbose must be None, 'basic', or 'detailed'")
-
         self.verbose = verbose
 
         self.console = Console()
         self.logger = logging.getLogger("explicit_agent")
 
         self.messages: List[Dict[str, Any]] = []
-
-        self.state: Any = initial_state
 
     def _process_tool_calls(self, tool_calls, tools) -> bool:
         """
@@ -78,7 +59,10 @@ class ExplicitAgent:
             )
 
             if not tool_class:
-                self._handle_tool_error(tool_call.id, f"Unknown tool: '{tool_name}'")
+                self._handle_tool_error(
+                    tool_call.id, 
+                    f"Unknown tool: '{tool_name}'"
+                )
                 continue
 
             try:
@@ -97,60 +81,44 @@ class ExplicitAgent:
                     f"[bold blue]Tool Call:[/bold blue] {tool_name}({tool_args})"
                 )
 
+            is_stop_tool = issubclass(tool_class, StopTool)
+            
             try:
-                is_stop_tool = issubclass(tool_class, StopTool)
-                is_stateful = tool_class.is_stateful()
-
-                if is_stateful:
-                    result = tool_instance.execute(state=self.state)
-                else:
-                    result = tool_instance.execute()
-
-                try:
-                    serialized_result = json.dumps({"result": result})
-                except (TypeError, ValueError) as e:
-                    self.logger.warning(
-                        f"Non-serializable result type: {type(result)}. Converting to string."
-                    )
-                    serialized_result = json.dumps({"result": str(result)})
-
-                tool_call_response = {
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": serialized_result,
-                }
-
-                self.messages.append(tool_call_response)
-
-                self.logger.info(f"Tool Call Result: {tool_name}(...) -> {result}")
-                if self.verbose == "basic":
-                    self.console.print("[bold blue]Tool Execution Complete[/bold blue]")
-                elif self.verbose == "detailed":
-                    self.console.print(
-                        f"[bold blue]Tool Call Result:[/bold blue] {tool_name}(...) ->"
-                    )
-                    self.console.print(Pretty(result))
-
-                self.logger.info(f"State: {self.state}")
-                if self.verbose == "basic" and self.state:
-                    self.console.print("[bold blue]State Updated[/bold blue]")
-                elif self.verbose == "detailed" and self.state:
-                    self.console.print("[bold blue]State:[/bold blue]")
-                    self.console.print(Pretty(self.state))
-
-                self.console.print()
-
-                if is_stop_tool:
-                    self.logger.info("Agent execution complete")
-                    if self.verbose:
-                        self.console.print(
-                            "[bold bright_green]Agent execution complete[/bold bright_green]"
-                        )
-                    return True
-
+                result = tool_instance.execute()
             except Exception as e:
-                raise RuntimeError(f"Error executing '{tool_name}' tool: {str(e)}")
+                self._handle_tool_error(
+                    tool_call.id, 
+                    f"Error executing '{tool_name}' tool: {str(e)}"
+                )
+                continue
 
+            try:
+                serialized_result = json.dumps({"result": result})
+            except (TypeError, ValueError) as e:
+                self.logger.warning(
+                    f"Non-serializable result type: {type(result)}. Converting to string."
+                )
+                serialized_result = json.dumps({"result": str(result)})
+
+            tool_call_response = {
+                "role": "tool",
+                "tool_call_id": tool_call.id,
+                "content": serialized_result,
+            }
+
+            self.messages.append(tool_call_response)
+
+            self.logger.info(f"Tool Call Result: {tool_name}(...) -> {result}")
+            if self.verbose:
+                self.console.print("[bold blue]Tool Execution Complete[/bold blue]")
+
+            self.console.print()
+
+            if is_stop_tool:
+                self.logger.info("Agent execution complete")
+                if self.verbose:
+                    self.console.print("[bold bright_green]Agent execution complete[/bold bright_green]")
+                return True
         return False
 
     def _handle_tool_error(self, tool_call_id: str, error_msg: str) -> None:
@@ -197,7 +165,7 @@ class ExplicitAgent:
             `parallel_tool_calls`: Whether to allow the model to call multiple functions in parallel.
             `**kwargs`: Additional keyword arguments to pass to the OpenAI API (i.e. `temperature`, `max_tokens`, `reasoning_effort`, etc.).
         Returns:
-            `Any`: The final state of the agent.
+            `bool`: Whether the agent has completed its task.
         """
         try:
             if not model or not isinstance(model, str):
@@ -246,15 +214,6 @@ class ExplicitAgent:
                         f"[bold green_yellow]Agent Step {current_step}/{budget}[/bold green_yellow]",
                         style="green_yellow",
                     )
-
-                if current_step >= budget:
-                    warning_msg = f"Warning: The agent has reached the maximum budget of steps without completion (budget: {budget})"
-                    self.logger.warning(warning_msg)
-                    if self.verbose:
-                        self.console.print(
-                            f"[bold orange1]{warning_msg}[/bold orange1]"
-                        )
-                    return self.state
 
                 response = self.client.chat.completions.create(
                     model=model,
@@ -315,16 +274,16 @@ class ExplicitAgent:
                 done = self._process_tool_calls(tool_calls=tool_calls, tools=tools)
 
                 if done:
-                    return self.state
-
-                if current_step >= budget:
+                    return True
+                
+                if current_step + 1 >= budget:
                     warning_msg = f"Warning: The agent has reached the maximum budget of steps without completion (budget: {budget})"
                     self.logger.warning(warning_msg)
                     if self.verbose:
                         self.console.print(
                             f"[bold orange1]{warning_msg}[/bold orange1]"
-                        )                
-                    return self.state
+                        )
+                    return False
 
         except ValueError as e:
             raise

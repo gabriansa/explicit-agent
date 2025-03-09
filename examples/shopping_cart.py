@@ -3,6 +3,11 @@ from explicit_agent.tools import BaseTool, StopTool
 
 from pydantic import Field
 
+
+# ========= DEFINING STATE =========
+# State is the context in which the shopping cart agent operates
+state = {}
+
 # ========= DEFINING TOOLS =========
 # Tools for managing a shopping cart
 
@@ -12,7 +17,7 @@ class AddItem(BaseTool):
     price: float  = Field(..., description="The price of the item")
     quantity: int  = Field(..., description="The quantity of the item")
 
-    def execute(self, state):
+    def execute(self):
         # Initialize the cart if it doesn't exist
         if "cart" not in state:
             state["cart"] = {}
@@ -36,7 +41,7 @@ class RemoveItem(BaseTool):
     """Remove an item from the shopping cart"""
     item_name: str  = Field(..., description="The name of the item to remove")
     
-    def execute(self, state):
+    def execute(self):
         if "cart" not in state or self.item_name not in state["cart"]:
             return f"Error: {self.item_name} is not in the cart"
         
@@ -54,7 +59,7 @@ class UpdateQuantity(BaseTool):
     item_name: str  = Field(..., description="The name of the item to update")
     new_quantity: int  = Field(..., description="The new quantity of the item")
     
-    def execute(self, state):
+    def execute(self):
         if "cart" not in state or self.item_name not in state["cart"]:
             return f"Error: {self.item_name} is not in the cart"
         
@@ -80,7 +85,7 @@ class ApplyDiscount(BaseTool):
     """Apply a discount to the cart total"""
     discount_percentage: float  = Field(..., description="The percentage discount to apply (0-100)")
     
-    def execute(self, state):
+    def execute(self):
         if "cart" not in state or not state["cart"]:
             return "Error: Cart is empty"
         
@@ -107,7 +112,7 @@ class ApplyDiscount(BaseTool):
 class ShowCart(BaseTool):
     """Display the current contents of the shopping cart"""
     
-    def execute(self, state):
+    def execute(self):
         if "cart" not in state or not state["cart"]:
             return "Your cart is empty"
         
@@ -145,7 +150,7 @@ class TaskComplete(StopTool):
 class Checkout(StopTool):
     """Process the checkout and complete the shopping session"""
     
-    def execute(self, state):
+    def execute(self):
         if "cart" not in state or not state["cart"]:
             return "Cannot checkout: Your cart is empty"
         
@@ -181,8 +186,9 @@ class Checkout(StopTool):
 # Example of how to use this shopping cart
 if __name__ == "__main__":
     # Replace with your actual API key and base URL
-    api_key = "your_api_key"
-    base_url = "your_base_url"  # For example, "https://api.openai.com/v1"
+    import os
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    base_url = os.getenv("OPENROUTER_BASE_URL")
     
     # System prompt that defines the shopping cart agent
     system_prompt = """
@@ -205,8 +211,7 @@ if __name__ == "__main__":
     shopping_agent = ExplicitAgent(
         api_key=api_key,
         base_url=base_url,
-        initial_state={},  # Empty initial state
-        verbose="detailed"
+        verbose=True
     )
     
     # Define individual shopping instructions
@@ -224,9 +229,6 @@ if __name__ == "__main__":
     # Set up available tools
     tools = [AddItem, RemoveItem, UpdateQuantity, ApplyDiscount, ShowCart, Checkout, TaskComplete]
     
-    # Run the agent for each instruction separately, preserving state between runs
-    current_state = {}  # Initialize empty state
-    
     print("Starting interactive shopping session...")
     print("=" * 50)
     
@@ -234,11 +236,8 @@ if __name__ == "__main__":
         print(f"\nStep {i+1}: {instruction}")
         print("-" * 50)
         
-        # Update the agent with the current state
-        shopping_agent.state = current_state
-        
         # Run the agent for just this instruction
-        updated_state = shopping_agent.run(
+        shopping_agent.run(
             model="openai/gpt-4o-mini",  # Or any other supported model
             prompt=instruction,
             system_prompt=system_prompt,
@@ -246,14 +245,12 @@ if __name__ == "__main__":
             tools=tools,
         )
         
-        # Save the updated state for the next instruction
-        current_state = updated_state
         
         # Display the current state of the cart after this instruction
         print("\nCurrent cart state after this instruction:")
-        if "cart" in current_state and current_state["cart"]:
-            items_in_cart = len(current_state["cart"])
-            total = current_state["total"]
+        if "cart" in state and state["cart"]:
+            items_in_cart = len(state["cart"])
+            total = state["total"]
             print(f"Items in cart: {items_in_cart}")
             print(f"Current total: ${total:.2f}")
         else:
@@ -262,4 +259,4 @@ if __name__ == "__main__":
         print("=" * 50)
     
     print("\nShopping session completed!")
-    print("Final state:", current_state)
+    print("Final state:", state)

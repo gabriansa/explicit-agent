@@ -10,8 +10,9 @@ A minimalist, transparent framework for building AI agents with full user contro
   - [Installation](#installation)
   - [How to use it](#how-to-use-it)
 - [Core Concepts](#core-concepts)
-  - [Agent State](#agent-state)
+  - [State Management](#state-management)
   - [Tool Types](#tool-types)
+  - [Tool Return Values](#tool-return-values)
 - [When is the Explicit Agent Framework Useful?](#when-is-the-explicit-agent-useful)
 
 
@@ -57,6 +58,11 @@ from explicit_agent.tools import BaseTool, StopTool
 
 from pydantic import Field
 
+
+# ========= DEFINING STATE =========
+# Define a simple state object to be shared across tools
+state = {"result": None}
+
 # ========= DEFINING TOOLS =========
 # Tools are the actions your agent can perform
 # Each tool is a Pydantic model with an execute method
@@ -69,12 +75,13 @@ class Multiply(BaseTool):
     b: int | float = Field(..., description="The second number to multiply")
 
     # The execute method defines what happens when this tool is called
-    # If the method has a 'state' parameter, it's stateful and can modify agent state
-    def execute(self, state):
-        # Save result to the agent's state so other tools can access it later
-        state["result"] = self.a * self.b
+    def execute(self):
+        # Calculate the result
+        result = self.a * self.b
+        # Save result to the state so other tools can access it later
+        state["result"] = result
         # Return value is what gets sent back to the LLM
-        return self.a * self.b
+        return f"Multiplied {self.a} × {self.b} = {result}"
 
 # StopTool - Special tool type that signals the agent to stop execution
 # Use this for final actions or to return results to the user
@@ -82,9 +89,9 @@ class ShowResult(StopTool):
     """Show the final result"""
 
     # This tool doesn't need parameters because it gets data from state
-    def execute(self, state):
+    def execute(self):
         # Return the final result that was stored in state by previous tool calls
-        return state["result"]
+        return f"Final result: {state['result']}"
 
 
 # ========= SYSTEM PROMPT =========
@@ -104,8 +111,7 @@ When you are done with the calculation, use the `ShowResult` tool to show the fi
 agent = ExplicitAgent(
     api_key=api_key,  # Your API key for the LLM provider
     base_url=base_url,  # Base URL for the provider (e.g., OpenAI, Azure, etc.)
-    initial_state={"result": None},  # Initialize the agent's state - a shared memory between tools
-    verbose="detailed"  # Print detailed logs of what's happening
+    verbose=True # Print logs of what is happening
 )
 
 # ========= USER PROMPT =========
@@ -119,14 +125,14 @@ Do the following calculations:
 
 # ========= AGENT EXECUTION =========
 # Run the agent with the prompt and tools
-final_state = agent.run(
+agent.run(
     model="openai/gpt-4o-mini",  # LLM model to use
     prompt=prompt,               # User's instructions
     system_prompt=system_prompt,  # Instructions for the agent
     budget=10,                   # Maximum number of steps (tool calls) before forced termination
     tools=[Multiply, ShowResult], # List of available tools
 )
-# When execution completes, final_state contains the agent's final state
+# When execution completes, the state variable contains any information preserved across tool calls
 # A StopTool will trigger completion, or the agent will stop when budget is exhausted
 ```
 
@@ -135,27 +141,60 @@ Explicit Agent is built around a few simple concepts.
 
 ![Explicit Agent Framework](assets/framework.png)
 
+### State Management
 
+In Explicit Agent, state management is completely up to you. The framework doesn't impose any specific state structure, giving you full control over how information is shared between tools:
 
-### Agent State
+- **User-Defined State**: You define your own state object (typically a dictionary) to persist data across tool calls.
+- **Flexible Implementation**: You can use global variables, class attributes, or any other approach that suits your application.
+- **Direct Manipulation**: Tools can directly access and modify this state, creating a simple and transparent flow of information.
 
-The agent maintains a `state` variable that persists across tool calls. This allows tools to share information, build on previous results, and modify the state itself. The state can be initialized when creating the agent.
+This approach offers several benefits:
+- **Clarity**: The state and its transformations are explicitly visible in your code
+- **Control**: You decide exactly what data is stored and how it's structured
+- **Simplicity**: No hidden state management mechanisms to debug or understand
+
+Example state implementations:
+```python
+# Simple global state
+state = {"counter": 0, "results": []}
+
+# State as part of a class
+class MyAgent:
+    def __init__(self):
+        self.state = {"counter": 0, "results": []}
+        self.agent = ExplicitAgent(...)
+    
+    def run_task(self, prompt):
+        return self.agent.run(
+            prompt=prompt,
+            tools=[...],  # Tools that can access self.state
+        )
+```
 
 ### Tool Types
 
 - **`BaseTool`**: This is the base class for creating tools.
 - **`StopTool`**: This is the base class for creating stop tools. Stop tools are extremely important because they are the ones that signal when the agent should stop execution.
 
-Both the `BaseTool` and `StopTool` tools can be stateful or stateless based on their `execute` method signature:
-- If `execute` method includes a `state` parameter, it's considered stateful (e.g `def execute(state, **kwargs)`)
-- If `execute` method doesn't have a `state` parameter, it's considered stateless (e.g `def execute(**kwargs)`)
+### Tool Return Values
+
+A crucial aspect of the Explicit Agent framework is how tool return values are handled:
+
+- **LLM Feedback Loop**: Whatever a tool returns (the output of its `execute` method) is sent back to the LLM as part of its conversation history.
+- **Decision Making**: The LLM uses these return values to inform its next actions, creating a dynamic feedback loop.
+- **Rich Responses**: Tools can return strings, structured data, or any format that would help the LLM understand the result of the action.
+
+This means tools serve two purposes:
+1. They perform actions that affect the external world or update the shared state
+2. They provide information back to the LLM to guide its decision-making process
 
 ### Execution Flow
 
 1. The agent receives a prompt from the user
 2. The agent generates tool calls based on the prompt and system instructions
-3. The tools are executed, potentially updating the agent's state
-4. The results are fed back to the agent, which uses them to inform subsequent decisions
+3. The tools are executed, potentially updating the user-defined state
+4. The results from the tools are fed back to the agent, informing subsequent decisions
 5. This continues until a `StopTool` is called or the budget is exhausted
 
 ## Examples
@@ -168,16 +207,14 @@ For more advanced usage and detailed documentation, see the [examples](examples)
 
 # When is the Explicit Agent Useful?
 
-The Explicit Agent shines in situations where tasks mimic human workflows that involve exploration, decision-making, and adaptability. Here’s a clear definition:
-- **Unstructured or Semi-Structured Tasks**: The framework excels when tasks don’t follow a rigid, predefined path and require the agent to adjust its approach based on new information or evolving requirements.
+The Explicit Agent shines in situations where tasks mimic human workflows that involve exploration, decision-making, and adaptability.
+- **Unstructured or Semi-Structured Tasks**: The framework excels when tasks don't follow a rigid, predefined path and require the agent to adjust its approach based on new information or evolving requirements.
 
-- **Multi-Step Processes with Tool Usage**: It’s ideal for tasks that involve multiple actions or tools, where the agent must decide which tool to use and in what order, depending on the current context.
+- **Multi-Step Processes with Tool Usage**: It's ideal for tasks that involve multiple actions or tools, where the agent must decide which tool to use and in what order, depending on the current context.
 
-- **State Management Across Steps**: The agent’s ability to maintain and update a shared state allows it to track progress, share information between tools, and build on previous results.
+- **State Management Across Steps**: The agent's ability to work with user-defined state allows for tracking progress, sharing information between tools, and building on previous results.
 
-- **Human-Like Reasoning**: It’s best suited for scenarios where judgment, exploration, or iterative refinement—qualities typically associated with human decision-making—are beneficial.
-
-In short, use this framework when you need an AI agent to autonomously handle complex, real-world problems that require transparency, control, and a sequence of thoughtful steps—much like a human would.
+- **Human-Like Reasoning**: It's best suited for scenarios where judgment, exploration, or iterative refinement—qualities typically associated with human decision-making—are beneficial.
 
 ## License
 
