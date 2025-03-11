@@ -9,6 +9,9 @@ from .tools import register_tools, StopTool, BaseTool
 
 
 class ExplicitAgent:
+    """
+    The ExplicitAgent class is a wrapper around the OpenAI API that allows for the execution of tool calls.
+    """
     def __init__(
         self,
         api_key: str,
@@ -66,7 +69,8 @@ class ExplicitAgent:
                 continue
 
             try:
-                tool_args = json.loads(tool_call.function.arguments)
+                arguments_str = tool_call.function.arguments.strip()
+                tool_args = json.loads(arguments_str) if arguments_str else {}
                 tool_instance = tool_class(**tool_args)
             except Exception as e:
                 self._handle_tool_error(
@@ -93,12 +97,12 @@ class ExplicitAgent:
                 continue
 
             try:
-                serialized_result = json.dumps({"result": result})
+                serialized_result = json.dumps({"result": result}, indent=4)
             except (TypeError, ValueError) as e:
                 self.logger.warning(
                     f"Non-serializable result type: {type(result)}. Converting to string."
                 )
-                serialized_result = json.dumps({"result": str(result)})
+                serialized_result = json.dumps({"result": str(result)}, indent=4)
 
             tool_call_response = {
                 "role": "tool",

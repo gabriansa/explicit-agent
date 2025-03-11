@@ -174,4 +174,4 @@ cython_debug/
 .DS_Store
 PyPI.md
 test.py
-/mcp_explicit_agent
+todo.md

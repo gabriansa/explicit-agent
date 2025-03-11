@@ -1,6 +1,4 @@
-import inspect
-import warnings
-from typing import Any, Dict, List, Type, Optional
+from typing import Any, Dict, List, Type
 
 from openai import pydantic_function_tool
 from pydantic import BaseModel
@@ -11,14 +9,6 @@ class BaseTool(BaseModel):
     Base class for tools.
     If no `execute` method is provided, a default implementation returning `None` will be used.
     """
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if "execute" not in cls.__dict__:
-            warnings.warn(
-                f"Tool class '{cls.__name__}' does not implement an 'execute' method. "
-                f"A default method returning None will be used."
-            )
 
     def execute(self) -> Any:
         """Execute the tool functionality

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "explicit-agent"
-version = "0.2.0"
+version = "0.2.1"
 authors = [
     {name = "Gabri Ansaldo", email = "ansaldo.gabri@gmail.com"},
 ]
